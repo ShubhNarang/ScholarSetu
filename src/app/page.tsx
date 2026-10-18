@@ -2,19 +2,25 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   ShieldCheck,
   Check,
   Lock,
   FileCheck2,
+  Sparkles,
 } from "lucide-react";
 import ScholarshipCard from "@/components/scholarship-card";
+import SearchBar from "@/components/search-bar";
 import { Scholarship } from "@/types/scholarship";
 
 export default function HomePage() {
+  const router = useRouter();
   const [scholarships, setScholarships] = useState<Scholarship[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [heroSearch, setHeroSearch] = useState("");
+  const [isSearchingLive, setIsSearchingLive] = useState(false);
 
   useEffect(() => {
     async function loadScholarships() {
@@ -32,6 +38,12 @@ export default function HomePage() {
     }
     loadScholarships();
   }, []);
+
+  const handleHeroTinyFishSearch = (query: string) => {
+    if (!query.trim()) return;
+    setIsSearchingLive(true);
+    router.push(`/scholarships?search=${encodeURIComponent(query.trim())}&live=true`);
+  };
 
   const featured = scholarships.filter((s) => s.is_featured).slice(0, 4);
 
@@ -55,8 +67,27 @@ export default function HomePage() {
           {/* Supporting Text */}
           <p className="mx-auto mt-6 max-w-2xl text-base sm:text-lg text-[#6e6e73] leading-relaxed font-normal">
             Discover scholarships that match your education, circumstances, and ambitions.
-            One profile. Relevant opportunities. Clear next steps.
+            Powered by TinyFish live intelligence across 33 official portals.
           </p>
+
+          {/* Prominent TinyFish Live Search Bar */}
+          <div className="mt-10 mx-auto max-w-2xl text-left">
+            <SearchBar
+              size="large"
+              value={heroSearch}
+              onChange={setHeroSearch}
+              onTinyFishSearch={handleHeroTinyFishSearch}
+              isSearchingLive={isSearchingLive}
+              placeholder="Search scheme name, course, state (e.g. AICTE Pragati, NSP, Tata)..."
+              quickPills={[
+                "AICTE Pragati",
+                "NSP Post-Matric",
+                "Reliance Foundation",
+                "Tata Trusts",
+                "Saksham (Disability)"
+              ]}
+            />
+          </div>
 
           {/* Primary & Secondary Actions */}
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -64,7 +95,7 @@ export default function HomePage() {
               href="/scholarships?match=open"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-[#1d1d1f] px-6 py-3 text-[14px] font-medium text-white shadow-2xs hover:bg-[#333336] active:scale-[0.99] transition-all"
             >
-              <span>Find My Scholarships</span>
+              <span>Match With My Profile</span>
               <ArrowRight className="h-4 w-4 opacity-70" />
             </Link>
 
@@ -72,7 +103,7 @@ export default function HomePage() {
               href="/scholarships"
               className="w-full sm:w-auto inline-flex items-center justify-center rounded-full border border-black/[0.1] bg-white px-6 py-3 text-[14px] font-medium text-[#1d1d1f] hover:bg-black/[0.03] transition-colors"
             >
-              Explore Scholarships
+              Browse All Scholarships
             </Link>
           </div>
 

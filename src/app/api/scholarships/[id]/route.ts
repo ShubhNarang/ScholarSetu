@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getScholarshipById } from "@/lib/db";
+import { getScholarshipById, getFieldEvidenceForScholarship } from "@/lib/db";
 
 export async function GET(
   _request: NextRequest,
@@ -19,9 +19,14 @@ export async function GET(
       );
     }
 
+    const fieldEvidence = await getFieldEvidenceForScholarship(id);
+
     return NextResponse.json({
       success: true,
-      scholarship,
+      scholarship: {
+        ...scholarship,
+        field_evidence: fieldEvidence.length > 0 ? fieldEvidence : scholarship.field_evidence || [],
+      },
     });
   } catch (err: unknown) {
     return NextResponse.json(

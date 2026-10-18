@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Search,
@@ -11,8 +11,10 @@ import {
   X,
   UserCheck,
   Sparkles,
+  RefreshCw,
 } from "lucide-react";
 import ScholarshipCard from "@/components/scholarship-card";
+import SearchBar from "@/components/search-bar";
 import ProfileMatchModal, { StudentProfile } from "@/components/profile-match-modal";
 import { evaluateScholarshipMatch } from "@/lib/eligibility-matcher";
 import { Scholarship } from "@/types/scholarship";
@@ -25,6 +27,15 @@ function ScholarshipsDiscoveryContent() {
   // Data & View State
   const [scholarships, setScholarships] = useState<Scholarship[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSearchingLive, setIsSearchingLive] = useState(false);
+  const [liveSearchMeta, setLiveSearchMeta] = useState<{
+    query: string;
+    latencyMs: number;
+    domainsSearched: number;
+    liveCount: number;
+    candidateUrls: string[];
+  } | null>(null);
+
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false);
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
@@ -38,6 +49,31 @@ function ScholarshipsDiscoveryContent() {
   const [selectedStatus, setSelectedStatus] = useState(searchParams.get("status") || "All");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [sortBy, setSortBy] = useState<"popular" | "deadline" | "amount_high" | "amount_low" | "recently_checked">("popular");
+
+  // TinyFish Live Search Handler
+  const handleTinyFishLiveSearch = useCallback(async (queryToSearch?: string) => {
+    const q = (queryToSearch ?? search).trim();
+    if (!q) return;
+    setIsSearchingLive(true);
+    try {
+      const res = await fetch(`/api/scholarships/live-search?query=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.scholarships)) {
+        setScholarships(data.scholarships);
+        setLiveSearchMeta({
+          query: q,
+          latencyMs: data.latencyMs || 0,
+          domainsSearched: data.domainsSearched || 33,
+          liveCount: data.liveCount || 0,
+          candidateUrls: data.candidateUrls || [],
+        });
+      }
+    } catch (err) {
+      console.error("Live search error:", err);
+    } finally {
+      setIsSearchingLive(false);
+    }
+  }, [search]);
 
   // Load student profile from localStorage & check URL trigger
   useEffect(() => {
@@ -58,9 +94,23 @@ function ScholarshipsDiscoveryContent() {
     return () => clearTimeout(timer);
   }, [searchParams]);
 
+  // Check URL triggers for live search
+  useEffect(() => {
+    const q = searchParams.get("search");
+    const isLive = searchParams.get("live") === "true";
+    if (isLive && q) {
+      handleTinyFishLiveSearch(q);
+    }
+  }, [searchParams, handleTinyFishLiveSearch]);
+
   // Load scholarships from API
   useEffect(() => {
     async function fetchFiltered() {
+      // If a live search result is actively loaded and query matches, do not overwrite with plain local search
+      if (liveSearchMeta && search === liveSearchMeta.query) {
+        return;
+      }
+
       setIsLoading(true);
       try {
         const params = new URLSearchParams();
@@ -90,7 +140,7 @@ function ScholarshipsDiscoveryContent() {
 
     const timer = setTimeout(fetchFiltered, 120);
     return () => clearTimeout(timer);
-  }, [search, selectedCategory, selectedLevel, selectedCourse, selectedState, selectedStatus, verifiedOnly, sortBy]);
+  }, [search, selectedCategory, selectedLevel, selectedCourse, selectedState, selectedStatus, verifiedOnly, sortBy, liveSearchMeta]);
 
   // Sync category & search params if URL changes
   useEffect(() => {
@@ -255,24 +305,24 @@ function ScholarshipsDiscoveryContent() {
         <div className="mt-6 space-y-3">
           {/* Search & Sort Row */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="relative w-full sm:max-w-md">
-              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#86868b]" />
-              <input
-                type="text"
+            <div className="w-full sm:max-w-xl">
+              <SearchBar
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search scheme name, provider, course, or keyword…"
-                className="w-full rounded-xl border border-black/[0.08] bg-[#fbfbfd] py-2 pl-9 pr-9 text-[13px] text-[#1d1d1f] placeholder:text-[#86868b] focus:border-[#0071e3] focus:bg-white focus:outline-none"
+                onChange={(val) => {
+                  setSearch(val);
+                  if (!val) setLiveSearchMeta(null);
+                }}
+                onTinyFishSearch={handleTinyFishLiveSearch}
+                isSearchingLive={isSearchingLive}
+                placeholder="Search scheme name, provider, course, or state…"
+                quickPills={[
+                  "AICTE Pragati",
+                  "NSP Post-Matric",
+                  "Reliance Foundation",
+                  "Tata Trusts",
+                  "Saksham"
+                ]}
               />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#86868b] hover:text-[#1d1d1f]"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
@@ -374,6 +424,52 @@ function ScholarshipsDiscoveryContent() {
             )}
           </div>
         </div>
+
+        {/* TinyFish Live Search Banner */}
+        {liveSearchMeta && (
+          <div className="mt-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-[#0071e3]/20 bg-[#f0f6ff]/70 p-4 text-[13px] shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0071e3] text-white flex-shrink-0 shadow-xs">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[#0071e3]">TinyFish Live Search Active</span>
+                  <span className="rounded-full bg-[#047857]/10 px-2 py-0.5 text-[11px] font-medium text-[#047857]">
+                    33 Portals Scanned
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[#1d1d1f]">
+                  Found <strong>{liveSearchMeta.liveCount} live opportunities</strong> in{" "}
+                  <strong>{(liveSearchMeta.latencyMs / 1000).toFixed(2)}s</strong> across official government &amp; foundation portals for &ldquo;<span className="font-medium">{liveSearchMeta.query}</span>&rdquo;.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setLiveSearchMeta(null);
+                  setSearch("");
+                }}
+                className="rounded-full border border-black/[0.1] bg-white px-3.5 py-1.5 text-[12px] font-medium text-[#1d1d1f] hover:bg-black/[0.04] transition-colors shadow-2xs"
+              >
+                Clear Live Results
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* TinyFish Live Scanning Indicator */}
+        {isSearchingLive && (
+          <div className="mt-5 flex items-center justify-center gap-3 rounded-2xl border border-[#0071e3]/20 bg-[#f0f6ff]/40 p-5 text-[13px] text-[#0071e3]">
+            <RefreshCw className="h-4 w-4 animate-spin flex-shrink-0" />
+            <span className="font-medium">
+              TinyFish is actively scanning 33 official government &amp; foundation portals in real time…
+            </span>
+          </div>
+        )}
 
         {/* Results Counter */}
         <div className="mt-6 flex items-center justify-between text-[12px] text-[#86868b] border-t border-black/[0.06] pt-4">

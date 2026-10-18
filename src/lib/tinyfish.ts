@@ -1,20 +1,63 @@
-import { Scholarship, VerificationStatus, ApplicationStatus } from "@/types/scholarship";
-
 /**
- * TinyFish Web Extraction & Verification Adapter
+ * TinyFish Web Agent Client
  *
- * Official TinyFish API Endpoints:
- * - Fetch API: https://api.fetch.tinyfish.ai
- * - Search API: https://api.tinyfish.ai
- * - Agent Automation API: https://agent.tinyfish.chat/v1/automation/run
+ * Official TinyFish API Endpoints (as per docs.tinyfish.ai):
+ * - Search API: GET https://api.search.tinyfish.ai
+ * - Fetch API:  POST https://api.fetch.tinyfish.ai
+ * - Agent API:  POST https://agent.tinyfish.ai/v1/automation/run
  */
 
 export interface TinyFishConfig {
   isConfigured: boolean;
   apiKeyPresent: boolean;
+  searchEndpoint: string;
   fetchEndpoint: string;
   agentEndpoint: string;
   statusMessage: string;
+}
+
+export interface TinyFishSearchResult {
+  position: number;
+  site_name: string;
+  title: string;
+  snippet: string;
+  url: string;
+  date?: string;
+}
+
+export interface TinyFishSearchResponse {
+  success: boolean;
+  query: string;
+  results: TinyFishSearchResult[];
+  totalResults: number;
+  error?: string;
+  statusCode?: number;
+}
+
+export interface TinyFishFetchedPage {
+  url: string;
+  final_url: string;
+  title: string | null;
+  description: string | null;
+  text: string | null;
+  links?: string[];
+  etag?: string;
+  last_modified?: string;
+  latency_ms?: number | null;
+}
+
+export interface TinyFishFetchError {
+  url: string;
+  error: string;
+  status?: number;
+}
+
+export interface TinyFishFetchResponse {
+  success: boolean;
+  results: TinyFishFetchedPage[];
+  errors: TinyFishFetchError[];
+  error?: string;
+  statusCode?: number;
 }
 
 export function getTinyFishConfig(): TinyFishConfig {
@@ -24,68 +67,247 @@ export function getTinyFishConfig(): TinyFishConfig {
   return {
     isConfigured,
     apiKeyPresent: isConfigured,
+    searchEndpoint: "https://api.search.tinyfish.ai",
     fetchEndpoint: "https://api.fetch.tinyfish.ai",
-    agentEndpoint: "https://agent.tinyfish.chat/v1/automation/run",
+    agentEndpoint: "https://agent.tinyfish.ai/v1/automation/run",
     statusMessage: isConfigured
       ? "TinyFish API credentials verified and active."
-      : "TinyFish API key (TINYFISH_API_KEY) is not configured in environment variables. Web scraping adapter is running in verified-audit mode.",
+      : "TinyFish API key (TINYFISH_API_KEY) is not set in environment. Running in offline/verified audit mode.",
   };
 }
 
 /**
- * Extracts clean markdown or structured text from target URLs using TinyFish Fetch API.
+ * Executes a web search using the official TinyFish Search API.
+ * Uses domain filtering (include_domains) and geo-targeting (location="IN").
  */
-export async function fetchWithTinyFish(urls: string[]): Promise<{
-  success: boolean;
-  results?: Array<{ url: string; title?: string; text?: string }>;
-  error?: string;
-}> {
+export async function searchWithTinyFish(params: {
+  query: string;
+  includeDomains?: string[];
+  purpose?: string;
+  maxRetries?: number;
+}): Promise<TinyFishSearchResponse> {
   const config = getTinyFishConfig();
   if (!config.isConfigured) {
     return {
       success: false,
-      error: "TINYFISH_API_KEY is not set. To enable live web extraction, set TINYFISH_API_KEY in your .env.local file.",
+      query: params.query,
+      results: [],
+      totalResults: 0,
+      error: "TINYFISH_API_KEY is not configured.",
     };
   }
 
-  try {
-    const response = await fetch(config.fetchEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": process.env.TINYFISH_API_KEY || "",
-      },
-      body: JSON.stringify({ urls }),
-    });
+  const searchUrl = new URL(config.searchEndpoint);
+  searchUrl.searchParams.set("query", params.query);
+  searchUrl.searchParams.set("location", "IN");
+  searchUrl.searchParams.set("language", "en");
 
-    if (!response.ok) {
-      const errText = await response.text();
+  if (params.includeDomains && params.includeDomains.length > 0) {
+    searchUrl.searchParams.set("include_domains", params.includeDomains.join(","));
+  }
+
+  if (params.purpose) {
+    searchUrl.searchParams.set("purpose", params.purpose.slice(0, 500));
+  }
+
+  const maxRetries = params.maxRetries ?? 2;
+  let attempt = 0;
+  let lastError = "";
+  let lastStatus = 0;
+
+  while (attempt <= maxRetries) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 35000); // 35s timeout
+
+      const res = await fetch(searchUrl.toString(), {
+        method: "GET",
+        headers: {
+          "X-API-Key": process.env.TINYFISH_API_KEY || "",
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      lastStatus = res.status;
+
+      if (res.status === 429) {
+        // Rate limited — back off exponentially
+        attempt++;
+        if (attempt <= maxRetries) {
+          await new Promise((r) => setTimeout(r, 2000 * Math.pow(2, attempt)));
+          continue;
+        }
+      }
+
+      if (!res.ok) {
+        const errText = await res.text();
+        return {
+          success: false,
+          query: params.query,
+          results: [],
+          totalResults: 0,
+          statusCode: res.status,
+          error: `TinyFish Search error (${res.status}): ${errText}`,
+        };
+      }
+
+      const data = await res.json();
       return {
-        success: false,
-        error: `TinyFish Fetch API error (${response.status}): ${errText}`,
+        success: true,
+        query: params.query,
+        results: (data.results || []) as TinyFishSearchResult[],
+        totalResults: data.total_results || (data.results?.length ?? 0),
+        statusCode: 200,
       };
+    } catch (err: unknown) {
+      lastError = err instanceof Error ? err.message : String(err);
+      attempt++;
+      if (attempt <= maxRetries) {
+        await new Promise((r) => setTimeout(r, 1500 * attempt));
+      }
     }
-
-    const data = await response.json();
-    return {
-      success: true,
-      results: data.results || [],
-    };
-  } catch (err: unknown) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    return {
-      success: false,
-      error: `Failed to connect to TinyFish API: ${errorMsg}`,
-    };
   }
+
+  return {
+    success: false,
+    query: params.query,
+    results: [],
+    totalResults: 0,
+    statusCode: lastStatus || 500,
+    error: `TinyFish Search failed after retries: ${lastError}`,
+  };
 }
 
 /**
- * Runs a natural-language goal-directed browser flow via TinyFish Agent API.
+ * Fetches clean markdown content from target URLs using the official TinyFish Fetch API.
+ * Supports batches of up to 10 URLs per request as specified by the docs.
+ */
+export async function fetchWithTinyFish(
+  urls: string[],
+  options: {
+    format?: "markdown" | "html";
+    links?: boolean;
+    ttl?: number;
+    maxRetries?: number;
+  } = {}
+): Promise<TinyFishFetchResponse> {
+  const config = getTinyFishConfig();
+  if (!config.isConfigured) {
+    return {
+      success: false,
+      results: [],
+      errors: urls.map((u) => ({ url: u, error: "TINYFISH_API_KEY is not configured" })),
+      error: "TINYFISH_API_KEY is not configured.",
+    };
+  }
+
+  if (urls.length === 0) {
+    return { success: true, results: [], errors: [] };
+  }
+
+  // Batch URLs into chunks of at most 10 per TinyFish limits
+  const BATCH_SIZE = 10;
+  const batches: string[][] = [];
+  for (let i = 0; i < urls.length; i += BATCH_SIZE) {
+    batches.push(urls.slice(i, i + BATCH_SIZE));
+  }
+
+  const allResults: TinyFishFetchedPage[] = [];
+  const allErrors: TinyFishFetchError[] = [];
+
+  for (const batchUrls of batches) {
+    let attempt = 0;
+    const maxRetries = options.maxRetries ?? 2;
+    let batchSuccess = false;
+
+    while (attempt <= maxRetries && !batchSuccess) {
+      try {
+        const controller = new AbortController();
+        // Set timeout to 120s to allow backend page rendering
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+        const response = await fetch(config.fetchEndpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": process.env.TINYFISH_API_KEY || "",
+          },
+          body: JSON.stringify({
+            urls: batchUrls,
+            format: options.format || "markdown",
+            links: options.links !== undefined ? options.links : true,
+            include_etag_and_last_modified: true,
+            ttl: options.ttl ?? 3600, // 1 hour cache tolerance
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.status === 429) {
+          attempt++;
+          if (attempt <= maxRetries) {
+            await new Promise((r) => setTimeout(r, 2000 * Math.pow(2, attempt)));
+            continue;
+          }
+        }
+
+        if (!response.ok) {
+          const errText = await response.text();
+          batchUrls.forEach((u) =>
+            allErrors.push({
+              url: u,
+              error: `HTTP ${response.status}: ${errText}`,
+              status: response.status,
+            })
+          );
+          batchSuccess = true;
+          break;
+        }
+
+        const data = await response.json();
+        if (Array.isArray(data.results)) {
+          allResults.push(...data.results);
+        }
+        if (Array.isArray(data.errors)) {
+          allErrors.push(...data.errors);
+        }
+
+        batchSuccess = true;
+      } catch (err: unknown) {
+        attempt++;
+        if (attempt > maxRetries) {
+          const msg = err instanceof Error ? err.message : String(err);
+          batchUrls.forEach((u) =>
+            allErrors.push({
+              url: u,
+              error: `Fetch attempt failed: ${msg}`,
+            })
+          );
+        } else {
+          await new Promise((r) => setTimeout(r, 1500 * attempt));
+        }
+      }
+    }
+  }
+
+  return {
+    success: allResults.length > 0 || allErrors.length === 0,
+    results: allResults,
+    errors: allErrors,
+    statusCode: allResults.length > 0 ? 200 : allErrors[0]?.status || 500,
+  };
+}
+
+/**
+ * Runs a goal-directed browser automation flow via TinyFish Agent API
+ * for complex multi-step navigation where ordinary Search and Fetch are insufficient.
  */
 export async function runTinyFishAgent(
   url: string,
-  goal: string
+  goal: string,
+  outputSchema?: Record<string, unknown>
 ): Promise<{
   success: boolean;
   result?: unknown;
@@ -100,14 +322,25 @@ export async function runTinyFishAgent(
   }
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+    const bodyPayload: Record<string, unknown> = { url, goal };
+    if (outputSchema) {
+      bodyPayload.output_schema = outputSchema;
+    }
+
     const response = await fetch(config.agentEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-API-Key": process.env.TINYFISH_API_KEY || "",
       },
-      body: JSON.stringify({ url, goal }),
+      body: JSON.stringify(bodyPayload),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errText = await response.text();
@@ -120,7 +353,7 @@ export async function runTinyFishAgent(
     const data = await response.json();
     return {
       success: true,
-      result: data.result,
+      result: data.result || data,
     };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
@@ -129,151 +362,4 @@ export async function runTinyFishAgent(
       error: `TinyFish Agent automation failed: ${errorMsg}`,
     };
   }
-}
-
-/**
- * Validates and checks whether an application link is a verified official portal.
- */
-export function verifyApplicationUrl(url: string): {
-  isValid: boolean;
-  isDirect: boolean;
-  platform: string;
-  verificationStatus: VerificationStatus;
-} {
-  try {
-    const parsed = new URL(url);
-
-    if (parsed.protocol !== "https:") {
-      return {
-        isValid: false,
-        isDirect: false,
-        platform: "Unsecured HTTP",
-        verificationStatus: "needs_verification",
-      };
-    }
-
-    const host = parsed.hostname.toLowerCase();
-
-    if (host.includes("scholarships.gov.in")) {
-      return {
-        isValid: true,
-        isDirect: true,
-        platform: "National Scholarship Portal (NSP)",
-        verificationStatus: "verified",
-      };
-    }
-
-    if (host.includes("nosmsje.gov.in")) {
-      return {
-        isValid: true,
-        isDirect: true,
-        platform: "Ministry of Social Justice (NOS)",
-        verificationStatus: "verified",
-      };
-    }
-
-    if (host.includes("mahadbt.maharashtra.gov.in") || host.includes("mahadbt2.maharashtra.gov.in")) {
-      return {
-        isValid: true,
-        isDirect: true,
-        platform: "MahaDBT 2.0 Portal",
-        verificationStatus: "verified",
-      };
-    }
-
-    if (host.includes("scholarships.reliancefoundation.org")) {
-      return {
-        isValid: true,
-        isDirect: true,
-        platform: "Reliance Scholarship Portal",
-        verificationStatus: "verified",
-      };
-    }
-
-    if (host.includes("ongcscholar.org")) {
-      return {
-        isValid: true,
-        isDirect: true,
-        platform: "ONGC Scholar Portal",
-        verificationStatus: "verified",
-      };
-    }
-
-    if (host.includes("ssp-india.co.in")) {
-      return {
-        isValid: true,
-        isDirect: true,
-        platform: "Siemens SSP Portal",
-        verificationStatus: "verified",
-      };
-    }
-
-    if (host.includes("buddy4study.com")) {
-      return {
-        isValid: true,
-        isDirect: true,
-        platform: "Buddy4Study (Official Partner)",
-        verificationStatus: "verified",
-      };
-    }
-
-    return {
-      isValid: true,
-      isDirect: false,
-      platform: parsed.hostname,
-      verificationStatus: "needs_verification",
-    };
-  } catch {
-    return {
-      isValid: false,
-      isDirect: false,
-      platform: "Invalid URL",
-      verificationStatus: "unverified",
-    };
-  }
-}
-
-/**
- * Normalizes raw extracted data from web scraping into our canonical database schema.
- */
-export function normalizeScholarshipRecord(raw: Partial<Scholarship>): Scholarship | null {
-  if (!raw.name || !raw.provider || !raw.source_url || !raw.application_url) {
-    return null;
-  }
-
-  const ver = verifyApplicationUrl(raw.application_url);
-  const dedupKey = `${raw.provider.toLowerCase().replace(/[^a-z0-9]/g, "_")}_${raw.name
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "_")}`;
-
-  return {
-    id: raw.id || `sch_${Math.random().toString(36).substring(2, 9)}`,
-    name: raw.name.trim(),
-    provider: raw.provider.trim(),
-    category: raw.category || "Government",
-    description: raw.description || "Official scholarship scheme.",
-    award_amount: raw.award_amount || "Financial assistance provided",
-    award_amount_value: raw.award_amount_value || 0,
-    award_benefits: Array.isArray(raw.award_benefits) ? raw.award_benefits : [],
-    eligibility_criteria: Array.isArray(raw.eligibility_criteria) ? raw.eligibility_criteria : [],
-    education_levels: Array.isArray(raw.education_levels) ? raw.education_levels : ["Undergraduate"],
-    eligible_courses: Array.isArray(raw.eligible_courses) ? raw.eligible_courses : ["All Regular Degrees"],
-    eligible_states: Array.isArray(raw.eligible_states) ? raw.eligible_states : ["All India"],
-    family_income_limit: raw.family_income_limit || "Income criteria specified in guidelines",
-    academic_requirements: raw.academic_requirements || "Satisfactory academic performance",
-    required_documents: Array.isArray(raw.required_documents) ? raw.required_documents : [],
-    application_start_date: raw.application_start_date || "",
-    application_deadline: raw.application_deadline || "Refer to official portal notification",
-    application_status: (raw.application_status as ApplicationStatus) || "verified_open",
-    source_url: raw.source_url,
-    application_url: raw.application_url,
-    source_type: raw.source_type || "official_government",
-    host_platform: raw.host_platform || ver.platform,
-    verification_status: ver.verificationStatus,
-    last_checked_at: new Date().toISOString(),
-    last_updated_at: new Date().toISOString(),
-    tags: Array.isArray(raw.tags) ? raw.tags : [],
-    is_featured: Boolean(raw.is_featured),
-    dedup_key: dedupKey,
-  };
 }

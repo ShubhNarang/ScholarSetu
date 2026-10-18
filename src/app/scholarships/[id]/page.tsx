@@ -8,22 +8,29 @@ export async function generateStaticParams() {
   }));
 }
 
-export default async function Page({
+async function ScholarshipDetailContent({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  return <ScholarshipDetailView id={id} />;
+}
 
+export default function Page({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   return (
     <Suspense
       fallback={
         <div className="flex min-h-[60vh] items-center justify-center">
-          <div className="h-9 w-9 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#0071e3] border-t-transparent" />
         </div>
       }
     >
-      <ScholarshipDetailView id={id} />
+      <ScholarshipDetailContent params={params} />
     </Suspense>
   );
 }

@@ -315,6 +315,36 @@ export default function ScholarshipDetailView({ id }: Props) {
               </div>
             </section>
 
+            {/* Traceable Source Evidence (When Available) */}
+            {scholarship.field_evidence && scholarship.field_evidence.length > 0 && (
+              <section className="space-y-3">
+                <h2 className="text-[18px] font-semibold text-[#1d1d1f]">
+                  Traceable Source Evidence
+                </h2>
+                <div className="space-y-2">
+                  {scholarship.field_evidence.map((ev, idx) => (
+                    <div
+                      key={idx}
+                      className="rounded-xl border border-black/[0.06] bg-[#fbfbfd] p-3.5 text-[12px]"
+                    >
+                      <div className="flex items-center justify-between text-[#86868b] text-[11px] mb-1">
+                        <span className="font-semibold text-[#1d1d1f] uppercase tracking-wider">
+                          {ev.field.replace(/_/g, " ")}
+                        </span>
+                        <span>Confidence: {(ev.confidenceScore * 100).toFixed(0)}%</span>
+                      </div>
+                      <p className="text-[#1d1d1f] font-mono text-[12px]">{ev.value}</p>
+                      {ev.evidenceSnippet && (
+                        <p className="text-[#6e6e73] text-[11px] mt-1.5 italic">
+                          &ldquo;{ev.evidenceSnippet}&rdquo;
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* 5. Official Source Notification */}
             <section className="rounded-xl border border-black/[0.06] bg-[#fbfbfd] p-5 space-y-2">
               <h3 className="text-[13px] font-semibold text-[#1d1d1f]">

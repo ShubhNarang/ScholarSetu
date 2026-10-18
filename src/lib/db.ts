@@ -1,8 +1,18 @@
-import { Scholarship, ExtractionLog, FilterParams } from "@/types/scholarship";
-import { VERIFIED_SCHOLARSHIPS } from "@/lib/verified-scholarships";
+import {
+  Scholarship,
+  ExtractionLog,
+  FilterParams,
+  FieldSourceEvidence,
+  IngestionJob,
+  IngestionJobStage,
+} from "../types/scholarship";
+import { VERIFIED_SCHOLARSHIPS } from "./verified-scholarships";
 
-// In-memory runtime store for logs and dynamic records
+// In-memory runtime store for dynamic scholarships, logs, and evidence
 const dynamicScholarships: Scholarship[] = [...VERIFIED_SCHOLARSHIPS];
+const fieldEvidenceStore: Record<string, FieldSourceEvidence[]> = {};
+const ingestionJobsStore: IngestionJob[] = [];
+
 const extractionLogsStore: ExtractionLog[] = [
   {
     id: "log_init_nsp",
@@ -98,9 +108,8 @@ export async function getScholarships(filters: FilterParams = {}): Promise<{
 
   // 5. State Filter
   if (filters.state && filters.state !== "All" && filters.state !== "All India") {
-    const st = filters.state.toLowerCase();
-    list = list.filter(
-      (s) => s.eligible_states.includes("All India") || s.eligible_states.some((state) => state.toLowerCase() === st)
+    list = list.filter((s) =>
+      s.eligible_states.includes("All India") || s.eligible_states.includes(filters.state!)
     );
   }
 
@@ -110,25 +119,20 @@ export async function getScholarships(filters: FilterParams = {}): Promise<{
   }
 
   // 7. Sorting
-  if (filters.sortBy) {
-    switch (filters.sortBy) {
-      case "deadline":
-        list.sort((a, b) => new Date(a.application_deadline).getTime() - new Date(b.application_deadline).getTime());
-        break;
-      case "amount_high":
-        list.sort((a, b) => b.award_amount_value - a.award_amount_value);
-        break;
-      case "amount_low":
-        list.sort((a, b) => a.award_amount_value - b.award_amount_value);
-        break;
-      case "recently_checked":
-        list.sort((a, b) => new Date(b.last_checked_at).getTime() - new Date(a.last_checked_at).getTime());
-        break;
-      case "popular":
-      default:
-        list.sort((a, b) => (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0));
-        break;
-    }
+  if (filters.sortBy === "amount_high") {
+    list.sort((a, b) => (b.award_amount_value || 0) - (a.award_amount_value || 0));
+  } else if (filters.sortBy === "amount_low") {
+    list.sort((a, b) => (a.award_amount_value || 0) - (b.award_amount_value || 0));
+  } else if (filters.sortBy === "recently_checked") {
+    list.sort((a, b) => new Date(b.last_checked_at).getTime() - new Date(a.last_checked_at).getTime());
+  } else if (filters.sortBy === "deadline") {
+    list.sort((a, b) => {
+      const da = new Date(a.application_deadline).getTime();
+      const db = new Date(b.application_deadline).getTime();
+      if (isNaN(da)) return 1;
+      if (isNaN(db)) return -1;
+      return da - db;
+    });
   }
 
   return {
@@ -154,7 +158,7 @@ export async function getRecentlyAdded(limit = 4): Promise<Scholarship[]> {
 
 export async function getClosingSoon(limit = 4): Promise<Scholarship[]> {
   return [...dynamicScholarships]
-    .filter((s) => s.application_status === "verified_open")
+    .filter((s) => s.application_status === "verified_open" || s.application_status === "confirmed_open")
     .sort((a, b) => new Date(a.application_deadline).getTime() - new Date(b.application_deadline).getTime())
     .slice(0, limit);
 }
@@ -178,16 +182,233 @@ export async function saveExtractionLog(log: Omit<ExtractionLog, "id" | "created
   extractionLogsStore.unshift(newLog);
 }
 
-export async function upsertScholarship(item: Scholarship): Promise<void> {
+/**
+ * Idempotent, safe upsert for scholarship records.
+ * Implements field-level merge rules: preserves existing verified values when
+ * newly extracted fields are missing or generic.
+ */
+export async function upsertScholarshipRecord(
+  incoming: Scholarship
+): Promise<{ action: "inserted" | "updated" | "skipped"; scholarship: Scholarship }> {
   const existingIdx = dynamicScholarships.findIndex(
-    (s) => s.id === item.id || s.dedup_key === item.dedup_key
+    (s) => s.id === incoming.id || s.dedup_key === incoming.dedup_key
   );
+
+  const nowIso = new Date().toISOString();
+
   if (existingIdx >= 0) {
-    dynamicScholarships[existingIdx] = {
-      ...item,
-      last_updated_at: new Date().toISOString(),
+    const existing = dynamicScholarships[existingIdx];
+
+    // Field-level preservation rules
+    const merged: Scholarship = {
+      ...existing,
+      ...incoming,
+      id: existing.id, // Preserve stable ID
+      dedup_key: existing.dedup_key,
+      first_discovered_at: existing.first_discovered_at || incoming.first_discovered_at || nowIso,
+      last_checked_at: nowIso,
+      last_updated_at: nowIso,
+      // If existing had verified values and incoming is generic or empty, preserve existing
+      award_amount:
+        existing.verification_status === "verified" && incoming.award_amount.includes("Refer")
+          ? existing.award_amount
+          : incoming.award_amount || existing.award_amount,
+      award_amount_value: incoming.award_amount_value || existing.award_amount_value,
+      application_deadline:
+        existing.verification_status === "verified" && incoming.application_deadline.includes("Refer")
+          ? existing.application_deadline
+          : incoming.application_deadline || existing.application_deadline,
+      family_income_limit:
+        incoming.family_income_limit.includes("Specified") && existing.family_income_limit
+          ? existing.family_income_limit
+          : incoming.family_income_limit,
+      // Retain verified status if it was previously verified
+      verification_status:
+        existing.verification_status === "verified" ? "verified" : incoming.verification_status,
+      // Merge unique eligibility criteria
+      eligibility_criteria: Array.from(
+        new Set([...existing.eligibility_criteria, ...incoming.eligibility_criteria])
+      ),
+      required_documents: Array.from(
+        new Set([...existing.required_documents, ...incoming.required_documents])
+      ),
+      tags: Array.from(new Set([...existing.tags, ...incoming.tags])),
     };
+
+    dynamicScholarships[existingIdx] = merged;
+    return { action: "updated", scholarship: merged };
   } else {
-    dynamicScholarships.unshift(item);
+    // New insertion
+    const toInsert: Scholarship = {
+      ...incoming,
+      first_discovered_at: nowIso,
+      last_checked_at: nowIso,
+      last_updated_at: nowIso,
+    };
+    dynamicScholarships.unshift(toInsert);
+    return { action: "inserted", scholarship: toInsert };
   }
+}
+
+/**
+ * Backward compatibility alias for existing code
+ */
+export async function upsertScholarship(item: Scholarship): Promise<void> {
+  await upsertScholarshipRecord(item);
+}
+
+/**
+ * Records field-level provenance evidence for auditing.
+ */
+export async function recordFieldEvidence(
+  scholarshipId: string,
+  evidence: FieldSourceEvidence
+): Promise<void> {
+  if (!fieldEvidenceStore[scholarshipId]) {
+    fieldEvidenceStore[scholarshipId] = [];
+  }
+  fieldEvidenceStore[scholarshipId].push(evidence);
+}
+
+export async function getFieldEvidenceForScholarship(
+  scholarshipId: string
+): Promise<FieldSourceEvidence[]> {
+  return fieldEvidenceStore[scholarshipId] || [];
+}
+
+/**
+ * Real Ingestion Job Tracking & State Management
+ */
+export function startIngestionJob(params: {
+  triggerType: "manual_single" | "manual_batch" | "scheduled";
+  sourceId?: string;
+  sourceName?: string;
+  totalSources: number;
+}): IngestionJob {
+  const newJob: IngestionJob = {
+    id: `job_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    triggerType: params.triggerType,
+    sourceId: params.sourceId,
+    sourceName: params.sourceName,
+    stage: "queued",
+    startedAt: new Date().toISOString(),
+    completedAt: null,
+    totalSources: params.totalSources,
+    sourcesAttempted: 0,
+    sourcesSucceeded: 0,
+    sourcesFailed: 0,
+    pagesAttempted: 0,
+    pagesFetched: 0,
+    recordsDiscovered: 0,
+    recordsInserted: 0,
+    recordsUpdated: 0,
+    recordsSkipped: 0,
+    recordsVerified: 0,
+    errors: [],
+    logs: [
+      {
+        timestamp: new Date().toISOString(),
+        stage: "queued",
+        message: `Job initialized for ${params.totalSources} source(s).`,
+      },
+    ],
+  };
+
+  ingestionJobsStore.unshift(newJob);
+  return newJob;
+}
+
+export function updateIngestionJobProgress(
+  jobId: string,
+  updates: {
+    stage?: IngestionJobStage;
+    sourcesAttempted?: number;
+    sourcesSucceeded?: number;
+    sourcesFailed?: number;
+    pagesAttempted?: number;
+    pagesFetched?: number;
+    recordsDiscovered?: number;
+    recordsInserted?: number;
+    recordsUpdated?: number;
+    recordsSkipped?: number;
+    recordsVerified?: number;
+    error?: { sourceId: string; url?: string; message: string };
+    logMessage?: string;
+  }
+): IngestionJob | null {
+  const job = ingestionJobsStore.find((j) => j.id === jobId);
+  if (!job) return null;
+
+  if (updates.stage) job.stage = updates.stage;
+  if (updates.sourcesAttempted) job.sourcesAttempted += updates.sourcesAttempted;
+  if (updates.sourcesSucceeded) job.sourcesSucceeded += updates.sourcesSucceeded;
+  if (updates.sourcesFailed) job.sourcesFailed += updates.sourcesFailed;
+  if (updates.pagesAttempted) job.pagesAttempted += updates.pagesAttempted;
+  if (updates.pagesFetched) job.pagesFetched += updates.pagesFetched;
+  if (updates.recordsDiscovered) job.recordsDiscovered += updates.recordsDiscovered;
+  if (updates.recordsInserted) job.recordsInserted += updates.recordsInserted;
+  if (updates.recordsUpdated) job.recordsUpdated += updates.recordsUpdated;
+  if (updates.recordsSkipped) job.recordsSkipped += updates.recordsSkipped;
+  if (updates.recordsVerified) job.recordsVerified += updates.recordsVerified;
+
+  if (updates.error) {
+    job.errors.push({
+      ...updates.error,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  if (updates.logMessage) {
+    job.logs.push({
+      timestamp: new Date().toISOString(),
+      stage: job.stage,
+      message: updates.logMessage,
+    });
+  }
+
+  return job;
+}
+
+export function finishIngestionJob(
+  jobId: string,
+  finalStage: "completed" | "partially_completed" | "failed",
+  failureMessage?: string
+): IngestionJob | null {
+  const job = ingestionJobsStore.find((j) => j.id === jobId);
+  if (!job) return null;
+
+  job.stage = finalStage;
+  job.completedAt = new Date().toISOString();
+
+  if (failureMessage) {
+    job.errors.push({
+      sourceId: job.sourceId || "global",
+      message: failureMessage,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  job.logs.push({
+    timestamp: new Date().toISOString(),
+    stage: finalStage,
+    message: `Job finished with status: ${finalStage}. Discovered: ${job.recordsDiscovered}, Inserted: ${job.recordsInserted}, Updated: ${job.recordsUpdated}.`,
+  });
+
+  return job;
+}
+
+export function getIngestionJobById(jobId: string): IngestionJob | null {
+  return ingestionJobsStore.find((j) => j.id === jobId) || null;
+}
+
+export function getActiveIngestionJob(): IngestionJob | null {
+  return (
+    ingestionJobsStore.find(
+      (j) => !["completed", "partially_completed", "failed"].includes(j.stage)
+    ) || null
+  );
+}
+
+export function getRecentIngestionJobs(limit = 10): IngestionJob[] {
+  return ingestionJobsStore.slice(0, limit);
 }

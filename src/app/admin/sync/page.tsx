@@ -1,28 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   RefreshCw,
   Check,
+  Database,
+  AlertCircle,
+  ExternalLink,
+  Sparkles,
 } from "lucide-react";
+import { ScholarshipSource, SourceCategory } from "@/lib/source-registry";
+import { IngestionJob, IngestionJobStage } from "@/types/scholarship";
 import { cn } from "@/lib/utils";
-
-interface VerifiedSource {
-  name: string;
-  domain: string;
-  type: string;
-  status: string;
-}
-
-interface ExtractionLogEntry {
-  id: string;
-  source_name: string;
-  created_at: string;
-  message: string;
-  engine: string;
-  items_extracted: number;
-  status: string;
-}
 
 interface StatusData {
   tinyfish?: {
@@ -30,6 +19,7 @@ interface StatusData {
     apiKeyPresent: boolean;
     fetchEndpoint: string;
     agentEndpoint: string;
+    searchEndpoint?: string;
     statusMessage: string;
   };
   database?: {
@@ -38,222 +28,420 @@ interface StatusData {
     totalRecords: number;
     message: string;
   };
-  verifiedSources?: VerifiedSource[];
-  recentExtractionLogs?: ExtractionLogEntry[];
 }
 
 export default function AdminSyncPage() {
-  const [data, setData] = useState<StatusData | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [refreshStep, setRefreshStep] = useState<string | null>(null);
-  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
+  const [statusData, setStatusData] = useState<StatusData | null>(null);
+  const [sources, setSources] = useState<ScholarshipSource[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<"all" | SourceCategory>("all");
+  const [activeJob, setActiveJob] = useState<IngestionJob | null>(null);
+  const [isStartingJob, setIsStartingJob] = useState(false);
+  const [activeSourceRefreshing, setActiveSourceRefreshing] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
 
-  const fetchStatus = async () => {
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const loadData = useCallback(async () => {
     try {
-      const res = await fetch("/api/scrape/status");
-      const json = await res.json();
-      setData(json);
-    } catch (err) {
-      console.error("Failed to load status:", err);
-    }
-  };
+      const [statusRes, sourcesRes, jobRes] = await Promise.all([
+        fetch("/api/scrape/status"),
+        fetch("/api/ingestion/sources"),
+        fetch("/api/ingestion/status"),
+      ]);
 
-  useEffect(() => {
-    let isMounted = true;
-    async function load() {
-      try {
-        const res = await fetch("/api/scrape/status");
-        const json = await res.json();
-        if (isMounted) setData(json);
-      } catch (err) {
-        console.error("Failed to load status:", err);
+      if (statusRes.ok) setStatusData(await statusRes.json());
+      if (sourcesRes.ok) {
+        const srcJson = await sourcesRes.json();
+        setSources(srcJson.sources || []);
       }
+      if (jobRes.ok) {
+        const jobJson = await jobRes.json();
+        setActiveJob(jobJson.activeJob || jobJson.latestJob || null);
+      }
+    } catch (err) {
+      console.error("Failed to load pipeline data:", err);
     }
-    load();
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
-  const triggerAudit = async () => {
-    setIsRefreshing(true);
-    setRefreshMessage(null);
-    setRefreshStep("Connecting to official sources via TinyFish…");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadData();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [loadData]);
+
+  // Polling effect when job is active
+  useEffect(() => {
+    if (activeJob && !["completed", "partially_completed", "failed"].includes(activeJob.stage)) {
+      pollIntervalRef.current = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/ingestion/status?jobId=${activeJob.id}`);
+          if (res.ok) {
+            const json = await res.json();
+            if (json.job) {
+              setActiveJob(json.job);
+              if (["completed", "partially_completed", "failed"].includes(json.job.stage)) {
+                if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                loadData();
+              }
+            }
+          }
+        } catch {
+          // ignore transient poll error
+        }
+      }, 2000);
+    } else {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    }
+
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, [activeJob, loadData]);
+
+  const triggerIngestion = async (sourceId?: string, sourceCategory?: string) => {
+    if (sourceId) setActiveSourceRefreshing(sourceId);
+    else setIsStartingJob(true);
+    setNotice(null);
 
     try {
-      const res = await fetch("/api/scrape/refresh", {
+      const res = await fetch("/api/ingestion/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ sourceId, sourceCategory }),
       });
-      const result = await res.json();
-      setRefreshStep(null);
-      setRefreshMessage(result.message || "Audit completed successfully.");
-      await fetchStatus();
+
+      const json = await res.json();
+      if (res.ok && json.job) {
+        setActiveJob(json.job);
+        setNotice({
+          type: "success",
+          message: json.message || "Ingestion job started.",
+        });
+      } else {
+        setNotice({
+          type: "error",
+          message: json.error || "Failed to trigger ingestion job.",
+        });
+      }
     } catch (err: unknown) {
-      setRefreshStep(null);
       const msg = err instanceof Error ? err.message : String(err);
-      setRefreshMessage(`Execution note: ${msg}`);
+      setNotice({ type: "error", message: `Request error: ${msg}` });
     } finally {
-      setIsRefreshing(false);
+      setIsStartingJob(false);
+      setActiveSourceRefreshing(null);
     }
   };
+
+  const filteredSources =
+    selectedCategory === "all"
+      ? sources
+      : sources.filter((s) => s.category === selectedCategory);
+
+  const getStageBadge = (stage: IngestionJobStage) => {
+    switch (stage) {
+      case "completed":
+        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#047857] bg-[#ecfdf5] px-2.5 py-0.5 rounded-full"><Check className="h-3 w-3" /> Completed</span>;
+      case "partially_completed":
+        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#b45309] bg-[#fffbeb] px-2.5 py-0.5 rounded-full">Partially Completed</span>;
+      case "failed":
+        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#dc2626] bg-[#fef2f2] px-2.5 py-0.5 rounded-full"><AlertCircle className="h-3 w-3" /> Failed</span>;
+      case "queued":
+        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#86868b] bg-[#f5f5f7] px-2.5 py-0.5 rounded-full">Queued</span>;
+      default:
+        return (
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#0071e3] bg-[#eff6ff] px-2.5 py-0.5 rounded-full">
+            <RefreshCw className="h-3 w-3 animate-spin" />
+            <span className="capitalize">{stage}…</span>
+          </span>
+        );
+    }
+  };
+
+  const isJobRunning = activeJob && !["completed", "partially_completed", "failed"].includes(activeJob.stage);
 
   return (
     <div className="min-h-screen bg-white pb-24 pt-8">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-black/[0.06]">
           <div>
             <span className="text-[12px] font-medium uppercase tracking-wider text-[#0071e3]">
-              Transparency & Verification
+              Transparency & Data Pipeline
             </span>
             <h1 className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight text-[#1d1d1f]">
-              Data Source Status & Audit
+              33-Source Ingestion & Verification Console
             </h1>
             <p className="mt-1 text-[13px] text-[#6e6e73]">
-              Inspection of live web extraction adapters, official portal connections, and database cache status.
+              Automated scholarship discovery, field-level provenance extraction, and safe deduplicated persistence via TinyFish.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={triggerAudit}
-            disabled={isRefreshing}
-            className="inline-flex items-center gap-2 rounded-full bg-[#1d1d1f] px-5 py-2 text-[13px] font-medium text-white hover:bg-[#333336] disabled:opacity-50 transition-all cursor-pointer"
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => triggerIngestion("nsp-central")}
+              disabled={Boolean(isJobRunning || isStartingJob)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.1] bg-white px-4 py-2 text-[12px] font-medium text-[#1d1d1f] hover:bg-[#f5f5f7] disabled:opacity-50 transition-all cursor-pointer"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-[#0071e3]" />
+              <span>Test Live NSP</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => triggerIngestion()}
+              disabled={Boolean(isJobRunning || isStartingJob)}
+              className="inline-flex items-center gap-2 rounded-full bg-[#1d1d1f] px-5 py-2 text-[13px] font-medium text-white hover:bg-[#333336] disabled:opacity-50 transition-all cursor-pointer"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", (isJobRunning || isStartingJob) && "animate-spin")} />
+              <span>{isJobRunning ? "Pipeline Running…" : "Run Batch Ingestion"}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Notice alert */}
+        {notice && (
+          <div
+            className={cn(
+              "mt-4 rounded-xl p-3.5 text-[13px] flex items-center justify-between border",
+              notice.type === "success" && "bg-[#ecfdf5] border-[#a7f3d0] text-[#065f46]",
+              notice.type === "error" && "bg-[#fef2f2] border-[#fecaca] text-[#991b1b]",
+              notice.type === "info" && "bg-[#f0f9ff] border-[#bae6fd] text-[#0369a1]"
+            )}
           >
-            <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
-            <span>{isRefreshing ? "Running Verification…" : "Run Data Audit"}</span>
-          </button>
-        </div>
-
-        {/* Live Refresh Progress Feedback */}
-        {refreshStep && (
-          <div className="mt-6 rounded-xl border border-black/[0.08] bg-[#fbfbfd] p-4 text-[13px] text-[#1d1d1f] flex items-center gap-2.5">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#1d1d1f] border-t-transparent flex-shrink-0" />
-            <span>{refreshStep}</span>
+            <span>{notice.message}</span>
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              className="text-xs font-semibold hover:underline ml-4"
+            >
+              Dismiss
+            </button>
           </div>
         )}
 
-        {refreshMessage && (
-          <div className="mt-6 rounded-xl border border-black/[0.06] bg-[#ecfdf5] p-4 text-[13px] text-[#047857] flex items-start gap-2.5">
-            <Check className="h-4 w-4 text-[#10b981] mt-0.5 flex-shrink-0" />
-            <p>{refreshMessage}</p>
-          </div>
-        )}
-
-        {/* Status Metrics Overview */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* 1. TinyFish Adapter */}
-          <div className="rounded-xl border border-black/[0.07] bg-[#fbfbfd] p-6 space-y-3">
+        {/* Engine Connectivity Status Cards */}
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="rounded-2xl border border-black/[0.07] bg-[#fbfbfd] p-5">
             <div className="flex items-center justify-between">
-              <span className="text-[13px] font-semibold text-[#1d1d1f]">
-                TinyFish Web Extraction Engine
+              <span className="text-[12px] font-medium text-[#86868b] uppercase tracking-wider">
+                TinyFish Web Extraction
               </span>
-              {data?.tinyfish?.isConfigured ? (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#047857] bg-[#ecfdf5] px-2.5 py-0.5 rounded-full">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#10b981]" />
-                  Live Connected
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#b45309] bg-[#fffbeb] px-2.5 py-0.5 rounded-full">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#f59e0b]" />
-                  Verified Audit Mode
-                </span>
-              )}
-            </div>
-
-            <p className="text-[13px] text-[#6e6e73] leading-relaxed">
-              {data?.tinyfish?.statusMessage || "Checking engine configuration…"}
-            </p>
-
-            <div className="pt-3 border-t border-black/[0.05] text-[11px] text-[#86868b] font-mono space-y-1">
-              <div>Fetch API: {data?.tinyfish?.fetchEndpoint}</div>
-              <div>Agent Endpoint: {data?.tinyfish?.agentEndpoint}</div>
-            </div>
-          </div>
-
-          {/* 2. Database Status */}
-          <div className="rounded-xl border border-black/[0.07] bg-[#fbfbfd] p-6 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] font-semibold text-[#1d1d1f]">
-                Database & Schema Layer
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#0071e3] bg-[#f0f6ff] px-2.5 py-0.5 rounded-full">
-                {data?.database?.provider === "supabase" ? "Supabase Cloud" : "In-Memory Verified Engine"}
-              </span>
-            </div>
-
-            <p className="text-[13px] text-[#6e6e73] leading-relaxed">
-              {data?.database?.message || "Running on verified database engine."}
-            </p>
-
-            <div className="pt-3 border-t border-black/[0.05] text-[12px] text-[#1d1d1f] font-medium">
-              Audited records available: {data?.database?.totalRecords || 12}
-            </div>
-          </div>
-        </div>
-
-        {/* Verified Portals List */}
-        <div className="mt-12 space-y-4">
-          <div>
-            <h2 className="text-[16px] font-semibold text-[#1d1d1f]">
-              Registered & Audited Official Portals
-            </h2>
-            <p className="text-[13px] text-[#6e6e73]">
-              ScholarSetu only connects to authorized national, state, and foundation endpoints.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {data?.verifiedSources?.map((src) => (
-              <div
-                key={src.name}
-                className="rounded-xl border border-black/[0.06] bg-white p-4 space-y-1 hover:border-black/[0.12] transition-colors"
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium",
+                  statusData?.tinyfish?.isConfigured
+                    ? "bg-[#ecfdf5] text-[#047857]"
+                    : "bg-[#fffbeb] text-[#b45309]"
+                )}
               >
-                <div className="flex items-center justify-between">
-                  <h4 className="text-[13px] font-semibold text-[#1d1d1f] truncate">
-                    {src.name}
-                  </h4>
-                  <span className="text-[10px] text-[#047857] font-medium bg-[#ecfdf5] px-2 py-0.5 rounded-md">
-                    Audited
-                  </span>
-                </div>
-                <p className="text-[11px] font-mono text-[#86868b] truncate">{src.domain}</p>
-                <span className="text-[11px] text-[#6e6e73] block">{src.type}</span>
+                {statusData?.tinyfish?.isConfigured ? "Connected & Active" : "Audit / Offline Mode"}
+              </span>
+            </div>
+            <div className="mt-3 space-y-1">
+              <div className="text-[13px] font-semibold text-[#1d1d1f]">
+                Search & Fetch REST Endpoints
               </div>
-            ))}
+              <p className="text-[12px] text-[#6e6e73] leading-relaxed">
+                {statusData?.tinyfish?.statusMessage || "Checking TinyFish configuration…"}
+              </p>
+            </div>
+            <div className="mt-3 pt-3 border-t border-black/[0.05] text-[11px] text-[#86868b] flex flex-wrap gap-4">
+              <span>Search: api.search.tinyfish.ai</span>
+              <span>Fetch: api.fetch.tinyfish.ai</span>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-black/[0.07] bg-[#fbfbfd] p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] font-medium text-[#86868b] uppercase tracking-wider">
+                Database & Schema Engine
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#ecfdf5] px-2.5 py-0.5 text-[11px] font-medium text-[#047857]">
+                <Database className="h-3 w-3" />
+                <span>{statusData?.database?.provider === "supabase" ? "Remote Supabase" : "Verified Local Engine"}</span>
+              </span>
+            </div>
+            <div className="mt-3 space-y-1">
+              <div className="text-[13px] font-semibold text-[#1d1d1f]">
+                {statusData?.database?.totalRecords ?? 12} Verified Scholarship Schemes Stored
+              </div>
+              <p className="text-[12px] text-[#6e6e73] leading-relaxed">
+                {statusData?.database?.message || "Running safe upsert and field-level evidence tracking."}
+              </p>
+            </div>
+            <div className="mt-3 pt-3 border-t border-black/[0.05] text-[11px] text-[#86868b] flex items-center justify-between">
+              <span>Field Evidence: Active</span>
+              <span>RLS: Enabled</span>
+            </div>
           </div>
         </div>
 
-        {/* Extraction Audit Trail */}
-        <div className="mt-12 space-y-4">
-          <div>
-            <h2 className="text-[16px] font-semibold text-[#1d1d1f]">
-              Audit Trail & Verification Logs
-            </h2>
-            <p className="text-[13px] text-[#6e6e73]">
-              Transparent record of previous verification and indexing cycles.
-            </p>
+        {/* Live Job Execution Panel */}
+        {activeJob && (
+          <div className="mt-6 rounded-2xl border border-black/[0.08] bg-[#fbfbfd] p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/[0.06] pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] font-semibold text-[#1d1d1f]">
+                    {activeJob.sourceName || "Ingestion Job"} ({activeJob.id})
+                  </span>
+                  {getStageBadge(activeJob.stage)}
+                </div>
+                <div className="text-[11px] text-[#86868b] mt-0.5">
+                  Trigger: {activeJob.triggerType} • Started: {new Date(activeJob.startedAt).toLocaleTimeString()}
+                  {activeJob.completedAt && ` • Completed: ${new Date(activeJob.completedAt).toLocaleTimeString()}`}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 text-[12px] text-[#6e6e73]">
+                <span>Sources: <strong>{activeJob.sourcesAttempted}</strong> / {activeJob.totalSources}</span>
+                <span>Pages: <strong>{activeJob.pagesFetched}</strong></span>
+              </div>
+            </div>
+
+            {/* Metrics Counters */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+              <div className="rounded-xl bg-white border border-black/[0.05] p-3">
+                <div className="text-[11px] text-[#86868b]">Discovered</div>
+                <div className="text-[18px] font-semibold text-[#1d1d1f]">{activeJob.recordsDiscovered}</div>
+              </div>
+              <div className="rounded-xl bg-white border border-black/[0.05] p-3">
+                <div className="text-[11px] text-[#86868b]">Inserted</div>
+                <div className="text-[18px] font-semibold text-[#047857]">{activeJob.recordsInserted}</div>
+              </div>
+              <div className="rounded-xl bg-white border border-black/[0.05] p-3">
+                <div className="text-[11px] text-[#86868b]">Updated</div>
+                <div className="text-[18px] font-semibold text-[#0071e3]">{activeJob.recordsUpdated}</div>
+              </div>
+              <div className="rounded-xl bg-white border border-black/[0.05] p-3">
+                <div className="text-[11px] text-[#86868b]">Skipped</div>
+                <div className="text-[18px] font-semibold text-[#86868b]">{activeJob.recordsSkipped}</div>
+              </div>
+              <div className="rounded-xl bg-white border border-black/[0.05] p-3">
+                <div className="text-[11px] text-[#86868b]">Verified</div>
+                <div className="text-[18px] font-semibold text-[#047857]">{activeJob.recordsVerified}</div>
+              </div>
+            </div>
+
+            {/* Real-time Logs Console */}
+            {activeJob.logs && activeJob.logs.length > 0 && (
+              <div className="rounded-xl bg-black/[0.03] border border-black/[0.05] p-3 text-[11px] font-mono max-h-40 overflow-y-auto space-y-1">
+                {activeJob.logs.map((log, idx) => (
+                  <div key={idx} className="flex items-start gap-2 text-[#4b5563]">
+                    <span className="text-[#9ca3af] flex-shrink-0">
+                      {new Date(log.timestamp).toLocaleTimeString()}
+                    </span>
+                    <span className="font-semibold text-[#1d1d1f] uppercase flex-shrink-0">
+                      [{log.stage}]
+                    </span>
+                    <span>{log.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 33 Configured Sources Registry */}
+        <div className="mt-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-[18px] font-semibold text-[#1d1d1f]">
+                Configured Source Registry ({sources.length})
+              </h2>
+              <p className="text-[12px] text-[#6e6e73]">
+                Strict URL allowlisting, domain constraints, and per-source rate limit boundaries.
+              </p>
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
+              {(
+                [
+                  { id: "all", label: "All (33)" },
+                  { id: "government_institutional", label: "Gov & Institutional (13)" },
+                  { id: "corporate_foundation", label: "Corporate (10)" },
+                  { id: "international", label: "International (4)" },
+                  { id: "state_portal", label: "State Portals (3)" },
+                  { id: "aggregator", label: "Aggregators (3)" },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setSelectedCategory(tab.id as "all" | SourceCategory)}
+                  className={cn(
+                    "rounded-full px-3 py-1 font-medium transition-colors cursor-pointer",
+                    selectedCategory === tab.id
+                      ? "bg-[#1d1d1f] text-white"
+                      : "bg-[#f5f5f7] text-[#6e6e73] hover:text-[#1d1d1f]"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
+          {/* Sources List */}
           <div className="space-y-2.5">
-            {data?.recentExtractionLogs?.map((log) => (
+            {filteredSources.map((src) => (
               <div
-                key={log.id}
-                className="rounded-xl border border-black/[0.06] bg-[#fbfbfd] p-4 text-[12px] space-y-1.5"
+                key={src.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-black/[0.06] bg-[#fbfbfd] p-4 transition-all hover:border-black/[0.12]"
               >
-                <div className="flex items-center justify-between text-[#86868b]">
-                  <span className="font-medium text-[#1d1d1f]">{log.source_name}</span>
-                  <span>{new Date(log.created_at).toLocaleString()}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[14px] font-semibold text-[#1d1d1f]">
+                      {src.name}
+                    </span>
+                    <span className="rounded-md bg-white border border-black/[0.06] px-2 py-0.5 text-[10px] uppercase font-medium text-[#86868b]">
+                      {src.category.replace(/_/g, " ")}
+                    </span>
+                    {src.enabled ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#047857]">
+                        <Check className="h-3 w-3" />
+                        Enabled
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-[#86868b]">Disabled</span>
+                    )}
+                  </div>
+
+                  <div className="mt-1 flex flex-wrap items-center gap-3 text-[12px] text-[#6e6e73]">
+                    <a
+                      href={src.startingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[#0071e3] hover:underline"
+                    >
+                      <span>{src.startingUrl}</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                    <span>•</span>
+                    <span>Strategy: <strong className="font-mono text-[11px]">{src.discoveryStrategy}</strong></span>
+                    <span>•</span>
+                    <span>Host: {src.hostPlatform}</span>
+                  </div>
                 </div>
-                <p className="text-[#6e6e73] leading-relaxed">{log.message}</p>
-                <div className="flex items-center gap-3 text-[11px] text-[#86868b] pt-1">
-                  <span>Engine: {log.engine}</span>
-                  <span>•</span>
-                  <span>Items: {log.items_extracted}</span>
-                  <span>•</span>
-                  <span className="text-[#047857] font-medium">Status: {log.status}</span>
+
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="text-right text-[11px] text-[#86868b] hidden sm:block">
+                    <div>Cap: 10 records / run</div>
+                    <div>Extracted: {src.recordsExtractedCount}</div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => triggerIngestion(src.id)}
+                    disabled={Boolean(isJobRunning || activeSourceRefreshing === src.id)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.1] bg-white px-3.5 py-1.5 text-[12px] font-medium text-[#1d1d1f] hover:bg-[#f5f5f7] disabled:opacity-50 transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className={cn("h-3 w-3", activeSourceRefreshing === src.id && "animate-spin")} />
+                    <span>{activeSourceRefreshing === src.id ? "Syncing…" : "Refresh"}</span>
+                  </button>
                 </div>
               </div>
             ))}

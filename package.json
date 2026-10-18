@@ -2,11 +2,15 @@
   "name": "scholarsetu",
   "version": "0.1.0",
   "private": true,
+  "imports": {
+    "@/*": "./src/*"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "jiti tests/pipeline.test.mjs"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

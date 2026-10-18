@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full scroll-smooth">
+    <html lang="en" className="h-full scroll-smooth" data-scroll-behavior="smooth">
       <body className="min-h-full flex flex-col bg-white text-[#1d1d1f] antialiased selection:bg-[#0071e3]/10 selection:text-[#0071e3]">
         <Suspense fallback={<div className="h-14 w-full border-b border-black/[0.06] bg-white/80" />}>
           <Navbar />

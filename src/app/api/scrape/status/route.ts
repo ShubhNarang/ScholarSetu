@@ -64,9 +64,13 @@ export async function GET() {
       ],
       recentExtractionLogs: recentLogs.slice(0, 10),
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { success: false, error: "Failed to read engine status", details: err.message },
+      {
+        success: false,
+        error: "Failed to read engine status",
+        details: err instanceof Error ? err.message : String(err),
+      },
       { status: 500 }
     );
   }

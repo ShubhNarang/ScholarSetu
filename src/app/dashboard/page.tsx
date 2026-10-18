@@ -4,28 +4,13 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Bookmark,
-  FileText,
-  Clock,
-  User,
-  CheckCircle2,
-  AlertCircle,
-  ExternalLink,
+  ArrowRight,
   Trash2,
-  Plus,
-  Calendar,
-  Building2,
-  GraduationCap,
-  Sparkles,
-  MapPin,
-  IndianRupee,
-  ShieldCheck,
 } from "lucide-react";
-import ScholarshipCard from "@/components/scholarship-card";
 import StatusBadge from "@/components/status-badge";
 import { Scholarship, StudentApplication } from "@/types/scholarship";
 import { cn } from "@/lib/utils";
 
-// Initial sample applications tracking structure (real opportunities)
 const INITIAL_APPLICATIONS: StudentApplication[] = [
   {
     id: "app-1",
@@ -47,7 +32,7 @@ const INITIAL_APPLICATIONS: StudentApplication[] = [
     status: "Applied",
     applicationPortal: "Reliance Foundation Portal",
     awardAmount: "Up to ₹2,00,000",
-    notes: "Online aptitude test scheduled for next week.",
+    notes: "Online aptitude test screening scheduled.",
   },
   {
     id: "app-3",
@@ -58,7 +43,7 @@ const INITIAL_APPLICATIONS: StudentApplication[] = [
     status: "Accepted",
     applicationPortal: "National Scholarship Portal (NSP)",
     awardAmount: "₹12,000 / year",
-    notes: "1st installment credited to Aadhaar-linked bank account.",
+    notes: "Disbursement credited to Aadhaar-seeded bank account.",
   },
 ];
 
@@ -69,7 +54,7 @@ export default function DashboardPage() {
   const [applications, setApplications] = useState<StudentApplication[]>(INITIAL_APPLICATIONS);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Student Profile state
+  // Profile
   const [profile, setProfile] = useState({
     fullName: "Aarav Sharma",
     email: "aarav.sharma@example.edu.in",
@@ -80,7 +65,6 @@ export default function DashboardPage() {
   });
   const [profileSavedMsg, setProfileSavedMsg] = useState(false);
 
-  // Load saved scholarships from API + localStorage
   useEffect(() => {
     async function initDashboard() {
       try {
@@ -92,7 +76,6 @@ export default function DashboardPage() {
 
         const storedSaved = JSON.parse(localStorage.getItem("scholarsetu_saved_ids") || "[]");
         if (storedSaved.length === 0) {
-          // Provide default saved items so student sees verified examples
           const defaults = ["nsp-aicte-pragati", "reliance-foundation-ug", "kotak-kanya-scholarship"];
           setSavedIds(defaults);
           localStorage.setItem("scholarsetu_saved_ids", JSON.stringify(defaults));
@@ -105,7 +88,7 @@ export default function DashboardPage() {
           setApplications(JSON.parse(storedApps));
         }
       } catch (err) {
-        console.error("Dashboard init error:", err);
+        console.error("Dashboard error:", err);
       } finally {
         setIsLoading(false);
       }
@@ -128,340 +111,306 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/70 pb-20 pt-8">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Student Banner */}
-        <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 text-xl font-bold text-white shadow-md">
-                <User className="h-7 w-7" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl sm:text-2xl font-black text-slate-900">
-                    {profile.fullName}
-                  </h1>
-                  <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-bold text-indigo-700">
-                    Student Scholar
-                  </span>
-                </div>
-                <p className="mt-1 text-xs sm:text-sm text-slate-500 font-medium">
-                  {profile.course} • {profile.state} • Income &lt; ₹{profile.familyIncome}
-                </p>
-              </div>
-            </div>
-
-            {/* Quick Stats Pill */}
-            <div className="grid grid-cols-3 gap-2 rounded-2xl bg-slate-50 p-3 border border-slate-100 text-center text-xs">
-              <div className="px-3">
-                <span className="block text-lg font-black text-indigo-600">{savedScholarships.length}</span>
-                <span className="text-[10px] text-slate-500 font-medium">Bookmarked</span>
-              </div>
-              <div className="border-x border-slate-200 px-3">
-                <span className="block text-lg font-black text-emerald-600">{applications.length}</span>
-                <span className="text-[10px] text-slate-500 font-medium">Tracked Apps</span>
-              </div>
-              <div className="px-3">
-                <span className="block text-lg font-black text-violet-600">
-                  {applications.filter((a) => a.status === "Accepted").length}
-                </span>
-                <span className="text-[10px] text-slate-500 font-medium">Accepted</span>
-              </div>
-            </div>
-          </div>
+    <div className="min-h-screen bg-white pb-24 pt-8">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+        {/* Editorial Page Header */}
+        <div className="pb-6 border-b border-black/[0.06]">
+          <span className="text-[12px] font-medium uppercase tracking-wider text-[#0071e3]">
+            Student Workspace
+          </span>
+          <h1 className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight text-[#1d1d1f]">
+            Application & Deadline Tracker
+          </h1>
+          <p className="mt-1 text-[13px] text-[#6e6e73]">
+            Keep track of your saved scholarship opportunities, submitted official applications, and approaching deadlines.
+          </p>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="mt-8 flex border-b border-slate-200 gap-4 overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setActiveTab("saved")}
-            className={cn(
-              "flex items-center gap-2 border-b-2 py-3.5 px-3 text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap",
-              activeTab === "saved"
-                ? "border-indigo-600 text-indigo-600"
-                : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
-            )}
-          >
-            <Bookmark className="h-4 w-4" />
-            <span>Saved Scholarships ({savedScholarships.length})</span>
-          </button>
+        {/* Apple-Style Segmented Navigation Tabs */}
+        <div className="mt-6 flex items-center border-b border-black/[0.06]">
+          <nav className="flex space-x-6 text-[13px] font-medium">
+            <button
+              type="button"
+              onClick={() => setActiveTab("saved")}
+              className={cn(
+                "pb-3 transition-colors relative cursor-pointer",
+                activeTab === "saved"
+                  ? "text-[#1d1d1f] font-semibold"
+                  : "text-[#86868b] hover:text-[#1d1d1f]"
+              )}
+            >
+              <span>Saved Scholarships ({savedScholarships.length})</span>
+              {activeTab === "saved" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1d1d1f]" />
+              )}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("applications")}
-            className={cn(
-              "flex items-center gap-2 border-b-2 py-3.5 px-3 text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap",
-              activeTab === "applications"
-                ? "border-indigo-600 text-indigo-600"
-                : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
-            )}
-          >
-            <FileText className="h-4 w-4" />
-            <span>Application Tracker ({applications.length})</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("applications")}
+              className={cn(
+                "pb-3 transition-colors relative cursor-pointer",
+                activeTab === "applications"
+                  ? "text-[#1d1d1f] font-semibold"
+                  : "text-[#86868b] hover:text-[#1d1d1f]"
+              )}
+            >
+              <span>Submitted Applications ({applications.length})</span>
+              {activeTab === "applications" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1d1d1f]" />
+              )}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("deadlines")}
-            className={cn(
-              "flex items-center gap-2 border-b-2 py-3.5 px-3 text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap",
-              activeTab === "deadlines"
-                ? "border-indigo-600 text-indigo-600"
-                : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
-            )}
-          >
-            <Calendar className="h-4 w-4" />
-            <span>Deadline Reminders</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("deadlines")}
+              className={cn(
+                "pb-3 transition-colors relative cursor-pointer",
+                activeTab === "deadlines"
+                  ? "text-[#1d1d1f] font-semibold"
+                  : "text-[#86868b] hover:text-[#1d1d1f]"
+              )}
+            >
+              <span>Upcoming Deadlines</span>
+              {activeTab === "deadlines" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1d1d1f]" />
+              )}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("profile")}
-            className={cn(
-              "flex items-center gap-2 border-b-2 py-3.5 px-3 text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap",
-              activeTab === "profile"
-                ? "border-indigo-600 text-indigo-600"
-                : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
-            )}
-          >
-            <User className="h-4 w-4" />
-            <span>My Eligibility Profile</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("profile")}
+              className={cn(
+                "pb-3 transition-colors relative cursor-pointer",
+                activeTab === "profile"
+                  ? "text-[#1d1d1f] font-semibold"
+                  : "text-[#86868b] hover:text-[#1d1d1f]"
+              )}
+            >
+              <span>My Profile</span>
+              {activeTab === "profile" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1d1d1f]" />
+              )}
+            </button>
+          </nav>
         </div>
 
-        {/* TAB 1: SAVED SCHOLARSHIPS */}
+        {/* Tab 1: Saved Scholarships */}
         {activeTab === "saved" && (
           <div className="mt-8">
-            {savedScholarships.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {savedScholarships.map((scholarship) => (
-                  <div key={scholarship.id} className="relative group">
-                    <ScholarshipCard scholarship={scholarship} onBookmarkChange={() => removeBookmark(scholarship.id)} />
-                  </div>
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-28 animate-pulse rounded-xl border border-black/[0.06] bg-[#fbfbfd]" />
                 ))}
               </div>
-            ) : (
-              <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-xs">
-                <Bookmark className="mx-auto h-12 w-12 text-slate-300" />
-                <h3 className="mt-3 text-base font-bold text-slate-900">No saved scholarships yet</h3>
-                <p className="mt-1 text-xs text-slate-500">
-                  Click the bookmark icon on any scholarship card to save it here for quick access.
-                </p>
-                <Link
-                  href="/scholarships"
-                  className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700"
-                >
-                  Explore Verified Scholarships
-                </Link>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* TAB 2: APPLICATION TRACKER */}
-        {activeTab === "applications" && (
-          <div className="mt-8">
-            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xs">
-              <div className="flex items-center justify-between p-5 border-b border-slate-100">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Submitted Applications</h3>
-                  <p className="text-xs text-slate-500">
-                    Track reference IDs, nodal verification, and DBT disbursement milestones.
-                  </p>
-                </div>
-                <Link
-                  href="/scholarships"
-                  className="rounded-xl border border-slate-200 px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  + Track Another
-                </Link>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
-                    <tr>
-                      <th className="py-3 px-4">Scholarship & Provider</th>
-                      <th className="py-3 px-4">Application Portal</th>
-                      <th className="py-3 px-4">Applied Date</th>
-                      <th className="py-3 px-4">Award Amount</th>
-                      <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {applications.map((app) => (
-                      <tr key={app.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-4 px-4">
-                          <span className="font-bold text-slate-900 block">{app.scholarshipName}</span>
-                          <span className="text-[11px] text-slate-500">{app.provider}</span>
-                        </td>
-                        <td className="py-4 px-4 font-semibold text-indigo-700">
-                          {app.applicationPortal}
-                        </td>
-                        <td className="py-4 px-4 text-slate-600">{app.appliedDate}</td>
-                        <td className="py-4 px-4 font-bold text-slate-900">{app.awardAmount}</td>
-                        <td className="py-4 px-4">
-                          <StatusBadge status={app.status} />
-                        </td>
-                        <td className="py-4 px-4 text-right">
-                          <Link
-                            href={`/scholarships/${app.scholarshipId}`}
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-100"
-                          >
-                            <span>Details</span>
-                            <ExternalLink className="h-3 w-3" />
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: DEADLINE REMINDERS */}
-        {activeTab === "deadlines" && (
-          <div className="mt-8 space-y-4">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs">
-              <h3 className="text-base font-bold text-slate-900 mb-1">Upcoming Opportunity Deadlines</h3>
-              <p className="text-xs text-slate-500 mb-6">
-                Never miss an application cut-off. These dates are synchronized with official notifications.
-              </p>
-
+            ) : savedScholarships.length > 0 ? (
               <div className="space-y-3">
-                {allScholarships.slice(0, 6).map((s) => (
+                {savedScholarships.map((s) => (
                   <div
                     key={s.id}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 hover:border-indigo-200 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-black/[0.07] bg-white p-5 transition-all hover:border-black/[0.14]"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 font-bold">
-                        <Calendar className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <Link href={`/scholarships/${s.id}`} className="font-bold text-xs sm:text-sm text-slate-900 hover:text-indigo-600">
+                    <div>
+                      <span className="text-[11px] font-medium text-[#86868b]">
+                        {s.provider} • {s.category}
+                      </span>
+                      <Link href={`/scholarships/${s.id}`} className="block mt-0.5">
+                        <h3 className="text-[15px] font-semibold text-[#1d1d1f] hover:text-[#0071e3] transition-colors">
                           {s.name}
-                        </Link>
-                        <p className="text-[11px] text-slate-500 font-medium">
-                          {s.provider} • Host: {s.host_platform}
-                        </p>
+                        </h3>
+                      </Link>
+                      <div className="mt-1 flex flex-wrap items-center gap-3 text-[12px] text-[#6e6e73]">
+                        <span>Award: <strong>{s.award_amount}</strong></span>
+                        <span>•</span>
+                        <span>Deadline: {s.application_deadline}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      <div className="text-left sm:text-right">
-                        <span className="block text-xs font-bold text-slate-900">{s.application_deadline}</span>
-                        <span className="text-[10px] font-semibold text-emerald-600">Active Window</span>
-                      </div>
+                    <div className="flex items-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-black/[0.06]">
                       <a
                         href={s.application_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="rounded-xl bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700"
+                        className="rounded-full bg-[#1d1d1f] px-4 py-1.5 text-[12px] font-medium text-white hover:bg-[#333336] transition-colors"
                       >
-                        Portal
+                        Apply Official
                       </a>
+                      <button
+                        type="button"
+                        onClick={() => removeBookmark(s.id)}
+                        aria-label="Remove bookmark"
+                        className="rounded-full p-2 text-[#86868b] hover:bg-black/[0.04] hover:text-[#dc2626]"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
+            ) : (
+              <div className="rounded-2xl border border-black/[0.06] bg-[#fbfbfd] p-12 text-center">
+                <Bookmark className="mx-auto h-6 w-6 text-[#86868b]" />
+                <h3 className="mt-3 text-[15px] font-semibold text-[#1d1d1f]">
+                  No saved scholarships yet
+                </h3>
+                <p className="mt-1 text-[13px] text-[#6e6e73] max-w-sm mx-auto">
+                  Browse opportunities and tap the bookmark icon on any card to save it for review.
+                </p>
+                <Link
+                  href="/scholarships"
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[#1d1d1f] px-5 py-2 text-[12px] font-medium text-white hover:bg-[#333336]"
+                >
+                  <span>Explore Scholarships</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 2: Applications Tracker */}
+        {activeTab === "applications" && (
+          <div className="mt-8">
+            <div className="space-y-3">
+              {applications.map((app) => (
+                <div
+                  key={app.id}
+                  className="rounded-xl border border-black/[0.07] bg-white p-5 space-y-3"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <span className="text-[11px] font-medium text-[#86868b]">{app.provider}</span>
+                      <h3 className="text-[15px] font-semibold text-[#1d1d1f]">
+                        {app.scholarshipName}
+                      </h3>
+                    </div>
+                    <StatusBadge status={app.status} />
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4 text-[12px] text-[#6e6e73] pt-2 border-t border-black/[0.05]">
+                    <span>Portal: <strong>{app.applicationPortal}</strong></span>
+                    <span>Applied: {new Date(app.appliedDate).toLocaleDateString()}</span>
+                    <span>Award: {app.awardAmount}</span>
+                  </div>
+
+                  {app.notes && (
+                    <div className="rounded-lg bg-[#fbfbfd] border border-black/[0.04] p-2.5 text-[12px] text-[#6e6e73]">
+                      <strong>Application note:</strong> {app.notes}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* TAB 4: PROFILE */}
-        {activeTab === "profile" && (
-          <div className="mt-8">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs max-w-2xl">
-              <h3 className="text-base font-bold text-slate-900">Student Eligibility Profile</h3>
-              <p className="mt-1 text-xs text-slate-500">
-                Update your education and household parameters to auto-highlight eligible scholarships across ScholarSetu.
-              </p>
+        {/* Tab 3: Deadlines */}
+        {activeTab === "deadlines" && (
+          <div className="mt-8 space-y-3">
+            {allScholarships
+              .filter((s) => s.application_status === "verified_open")
+              .map((s) => (
+                <div
+                  key={s.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-black/[0.07] bg-white p-4"
+                >
+                  <div>
+                    <span className="text-[11px] font-medium text-[#86868b]">{s.provider}</span>
+                    <Link href={`/scholarships/${s.id}`} className="block">
+                      <h4 className="text-[14px] font-semibold text-[#1d1d1f] hover:text-[#0071e3]">
+                        {s.name}
+                      </h4>
+                    </Link>
+                  </div>
 
-              <form onSubmit={saveProfile} className="mt-6 space-y-4 text-xs">
+                  <div className="flex items-center gap-4 text-[12px]">
+                    <div className="text-left sm:text-right">
+                      <span className="text-[11px] text-[#86868b] block">Official Deadline</span>
+                      <span className="font-semibold text-[#1d1d1f]">{s.application_deadline}</span>
+                    </div>
+
+                    <Link
+                      href={`/scholarships/${s.id}`}
+                      className="rounded-full border border-black/[0.08] px-3.5 py-1 text-[12px] font-medium text-[#1d1d1f] hover:bg-black/[0.03]"
+                    >
+                      View
+                    </Link>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+
+        {/* Tab 4: Student Profile */}
+        {activeTab === "profile" && (
+          <div className="mt-8 max-w-xl">
+            <form onSubmit={saveProfile} className="space-y-4">
+              <div>
+                <label className="block text-[12px] font-medium text-[#1d1d1f] mb-1">Full Name</label>
+                <input
+                  type="text"
+                  value={profile.fullName}
+                  onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
+                  className="w-full rounded-xl border border-black/[0.1] bg-[#fbfbfd] px-3.5 py-2 text-[13px] text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[12px] font-medium text-[#1d1d1f] mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={profile.email}
+                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                  className="w-full rounded-xl border border-black/[0.1] bg-[#fbfbfd] px-3.5 py-2 text-[13px] text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Full Name</label>
+                  <label className="block text-[12px] font-medium text-[#1d1d1f] mb-1">Education Level</label>
                   <input
                     type="text"
-                    value={profile.fullName}
-                    onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
-                    className="w-full rounded-xl border border-slate-300 p-2.5 font-medium text-slate-900"
+                    value={profile.educationLevel}
+                    onChange={(e) => setProfile({ ...profile, educationLevel: e.target.value })}
+                    className="w-full rounded-xl border border-black/[0.1] bg-[#fbfbfd] px-3.5 py-2 text-[13px] text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
                   />
                 </div>
-
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Email Address</label>
+                  <label className="block text-[12px] font-medium text-[#1d1d1f] mb-1">Domicile State</label>
                   <input
-                    type="email"
-                    value={profile.email}
-                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                    className="w-full rounded-xl border border-slate-300 p-2.5 font-medium text-slate-900"
+                    type="text"
+                    value={profile.state}
+                    onChange={(e) => setProfile({ ...profile, state: e.target.value })}
+                    className="w-full rounded-xl border border-black/[0.1] bg-[#fbfbfd] px-3.5 py-2 text-[13px] text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
                   />
                 </div>
+              </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Education Level</label>
-                    <input
-                      type="text"
-                      value={profile.educationLevel}
-                      onChange={(e) => setProfile({ ...profile, educationLevel: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 p-2.5 font-medium text-slate-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Course / Discipline</label>
-                    <input
-                      type="text"
-                      value={profile.course}
-                      onChange={(e) => setProfile({ ...profile, course: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 p-2.5 font-medium text-slate-900"
-                    />
-                  </div>
-                </div>
+              <div>
+                <label className="block text-[12px] font-medium text-[#1d1d1f] mb-1">Annual Family Income (₹)</label>
+                <input
+                  type="text"
+                  value={profile.familyIncome}
+                  onChange={(e) => setProfile({ ...profile, familyIncome: e.target.value })}
+                  className="w-full rounded-xl border border-black/[0.1] bg-[#fbfbfd] px-3.5 py-2 text-[13px] text-[#1d1d1f] focus:outline-none focus:border-[#0071e3]"
+                />
+              </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Domicile State</label>
-                    <input
-                      type="text"
-                      value={profile.state}
-                      onChange={(e) => setProfile({ ...profile, state: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 p-2.5 font-medium text-slate-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Annual Household Income (₹)</label>
-                    <input
-                      type="text"
-                      value={profile.familyIncome}
-                      onChange={(e) => setProfile({ ...profile, familyIncome: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 p-2.5 font-medium text-slate-900"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-4 flex items-center gap-3">
-                  <button
-                    type="submit"
-                    className="rounded-xl bg-indigo-600 px-6 py-2.5 font-bold text-white shadow-xs hover:bg-indigo-700 transition-colors"
-                  >
-                    Save Preferences
-                  </button>
-                  {profileSavedMsg && (
-                    <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Preferences saved successfully!
-                    </span>
-                  )}
-                </div>
-              </form>
-            </div>
+              <div className="pt-2 flex items-center gap-3">
+                <button
+                  type="submit"
+                  className="rounded-full bg-[#1d1d1f] px-6 py-2 text-[13px] font-medium text-white hover:bg-[#333336] transition-colors"
+                >
+                  Save Profile
+                </button>
+                {profileSavedMsg && (
+                  <span className="text-[12px] font-medium text-[#047857]">
+                    Profile updated successfully.
+                  </span>
+                )}
+              </div>
+            </form>
           </div>
         )}
       </div>

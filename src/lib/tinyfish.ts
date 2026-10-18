@@ -1,4 +1,4 @@
-import { Scholarship, ExtractionLog, VerificationStatus, ApplicationStatus } from "@/types/scholarship";
+import { Scholarship, VerificationStatus, ApplicationStatus } from "@/types/scholarship";
 
 /**
  * TinyFish Web Extraction & Verification Adapter
@@ -71,10 +71,11 @@ export async function fetchWithTinyFish(urls: string[]): Promise<{
       success: true,
       results: data.results || [],
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
     return {
       success: false,
-      error: `Failed to connect to TinyFish API: ${err.message || String(err)}`,
+      error: `Failed to connect to TinyFish API: ${errorMsg}`,
     };
   }
 }
@@ -87,7 +88,7 @@ export async function runTinyFishAgent(
   goal: string
 ): Promise<{
   success: boolean;
-  result?: any;
+  result?: unknown;
   error?: string;
 }> {
   const config = getTinyFishConfig();
@@ -121,10 +122,11 @@ export async function runTinyFishAgent(
       success: true,
       result: data.result,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
     return {
       success: false,
-      error: `TinyFish Agent automation failed: ${err.message || String(err)}`,
+      error: `TinyFish Agent automation failed: ${errorMsg}`,
     };
   }
 }

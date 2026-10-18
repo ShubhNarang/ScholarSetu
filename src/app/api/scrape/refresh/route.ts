@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTinyFishConfig, fetchWithTinyFish, normalizeScholarshipRecord } from "@/lib/tinyfish";
-import { saveExtractionLog, upsertScholarship } from "@/lib/db";
+import { getTinyFishConfig, fetchWithTinyFish } from "@/lib/tinyfish";
+import { saveExtractionLog } from "@/lib/db";
 import { VERIFIED_SCHOLARSHIPS } from "@/lib/verified-scholarships";
 
 export async function POST(request: NextRequest) {
@@ -74,9 +74,13 @@ export async function POST(request: NextRequest) {
       tinyFishConfigured: true,
       results: fetchResult.results,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { success: false, error: "Scrape refresh process failed", details: err.message },
+      {
+        success: false,
+        error: "Scrape refresh process failed",
+        details: err instanceof Error ? err.message : String(err),
+      },
       { status: 500 }
     );
   }

@@ -1,6 +1,5 @@
 import { cn } from "@/lib/utils";
 import { ApplicationStatus, VerificationStatus } from "@/types/scholarship";
-import { CheckCircle2, Clock, AlertTriangle, XCircle, HelpCircle } from "lucide-react";
 
 interface StatusBadgeProps {
   status: ApplicationStatus | VerificationStatus | string;
@@ -15,15 +14,15 @@ export default function StatusBadge({ status, className }: StatusBadgeProps) {
       return (
         <span
           className={cn(
-            "inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200/80",
+            "inline-flex items-center gap-1.5 rounded-full bg-[#ecfdf5] px-2.5 py-0.5 text-[11px] font-medium text-[#047857]",
             className
           )}
         >
-          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+          <span className="h-1.5 w-1.5 rounded-full bg-[#10b981]" />
           {status === "verified_open"
             ? "Verified & Open"
             : status === "verified"
-            ? "Verified Official"
+            ? "Verified Source"
             : "Accepted"}
         </span>
       );
@@ -32,11 +31,11 @@ export default function StatusBadge({ status, className }: StatusBadgeProps) {
       return (
         <span
           className={cn(
-            "inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-sky-700 ring-1 ring-sky-200/80",
+            "inline-flex items-center gap-1.5 rounded-full bg-[#f0f6ff] px-2.5 py-0.5 text-[11px] font-medium text-[#0071e3]",
             className
           )}
         >
-          <Clock className="h-3.5 w-3.5 text-sky-600" />
+          <span className="h-1.5 w-1.5 rounded-full bg-[#0071e3]" />
           Opening Soon
         </span>
       );
@@ -46,12 +45,12 @@ export default function StatusBadge({ status, className }: StatusBadgeProps) {
       return (
         <span
           className={cn(
-            "inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-200/80",
+            "inline-flex items-center gap-1.5 rounded-full bg-[#f5f5f7] px-2.5 py-0.5 text-[11px] font-medium text-[#86868b]",
             className
           )}
         >
-          <XCircle className="h-3.5 w-3.5 text-rose-600" />
-          {status === "deadline_passed" ? "Deadline Passed" : "Rejected"}
+          <span className="h-1.5 w-1.5 rounded-full bg-[#86868b]" />
+          {status === "deadline_passed" ? "Cycle Closed" : "Rejected"}
         </span>
       );
 
@@ -60,12 +59,12 @@ export default function StatusBadge({ status, className }: StatusBadgeProps) {
       return (
         <span
           className={cn(
-            "inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-200/80",
+            "inline-flex items-center gap-1.5 rounded-full bg-[#fffbeb] px-2.5 py-0.5 text-[11px] font-medium text-[#b45309]",
             className
           )}
         >
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-          {status === "needs_verification" ? "Needs Verification" : "Under Review"}
+          <span className="h-1.5 w-1.5 rounded-full bg-[#f59e0b]" />
+          {status === "needs_verification" ? "Review Pending" : "Under Review"}
         </span>
       );
 
@@ -73,11 +72,11 @@ export default function StatusBadge({ status, className }: StatusBadgeProps) {
       return (
         <span
           className={cn(
-            "inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-200/80",
+            "inline-flex items-center gap-1.5 rounded-full bg-[#f0f6ff] px-2.5 py-0.5 text-[11px] font-medium text-[#0071e3]",
             className
           )}
         >
-          <Clock className="h-3.5 w-3.5 text-indigo-600" />
+          <span className="h-1.5 w-1.5 rounded-full bg-[#0071e3]" />
           Applied
         </span>
       );
@@ -86,11 +85,11 @@ export default function StatusBadge({ status, className }: StatusBadgeProps) {
       return (
         <span
           className={cn(
-            "inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700",
+            "inline-flex items-center gap-1.5 rounded-full bg-[#f5f5f7] px-2.5 py-0.5 text-[11px] font-medium text-[#6e6e73]",
             className
           )}
         >
-          <HelpCircle className="h-3.5 w-3.5 text-slate-500" />
+          <span className="h-1.5 w-1.5 rounded-full bg-[#a1a1a6]" />
           {status}
         </span>
       );

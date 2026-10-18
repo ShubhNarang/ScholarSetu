@@ -1,129 +1,121 @@
 import Link from "next/link";
-import { GraduationCap, ShieldCheck, ExternalLink, Heart } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 
-const officialPortals = [
+const verifiedPortals = [
   { name: "National Scholarship Portal (NSP)", href: "https://scholarships.gov.in" },
-  { name: "Maharashtra MahaDBT Portal", href: "https://mahadbt2.maharashtra.gov.in" },
+  { name: "MahaDBT Portal Maharashtra", href: "https://mahadbt2.maharashtra.gov.in" },
   { name: "Ministry of Social Justice (NOS)", href: "https://nosmsje.gov.in" },
-  { name: "AICTE Student Development Schemes", href: "https://www.aicte.gov.in" },
-  { name: "Reliance Foundation Scholarships", href: "https://scholarships.reliancefoundation.org" },
+  { name: "AICTE Student Schemes", href: "https://www.aicte.gov.in" },
+  { name: "Reliance Foundation", href: "https://scholarships.reliancefoundation.org" },
   { name: "ONGC Scholar Portal", href: "https://ongcscholar.org" },
-];
-
-const categoryLinks = [
-  { label: "Government Scholarships", href: "/scholarships?category=Government" },
-  { label: "Merit-Based Opportunities", href: "/scholarships?category=Merit-Based" },
-  { label: "Engineering & Technical", href: "/scholarships?category=Engineering" },
-  { label: "Women Empowerment Scholarships", href: "/scholarships?category=Women" },
-  { label: "State Government Schemes", href: "/scholarships?category=State+Scholarships" },
-  { label: "Undergraduate Grants", href: "/scholarships?category=Undergraduate" },
 ];
 
 export default function Footer() {
   return (
-    <footer className="mt-auto border-t border-slate-200 bg-slate-900 text-slate-400">
-      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4">
+    <footer className="mt-auto border-t border-black/[0.06] bg-[#f5f5f7] text-[#6e6e73]">
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-4">
           {/* Brand & Mission */}
-          <div className="space-y-4">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
-                <GraduationCap className="h-5 w-5" />
-              </div>
-              <span className="text-xl font-black text-white">
-                Scholar<span className="text-indigo-400">Setu</span>
-              </span>
-            </Link>
-            <p className="text-xs leading-relaxed text-slate-400">
-              India&apos;s trusted opportunity discovery platform for students. We index, verify,
-              and connect scholars directly to official central, state government, and corporate
-              CSR scholarship portals with transparent criteria.
+          <div className="space-y-3 md:col-span-1">
+            <span className="text-[15px] font-semibold text-[#1d1d1f]">ScholarSetu</span>
+            <p className="text-[12px] leading-relaxed text-[#6e6e73]">
+              A calm, transparent discovery engine connecting Indian students with verified
+              central, state, and foundation scholarships through direct official application links.
             </p>
-            <div className="flex items-center gap-2 rounded-lg bg-slate-800/80 p-2.5 text-xs text-slate-300 border border-slate-700">
-              <ShieldCheck className="h-4 w-4 text-emerald-400 flex-shrink-0" />
-              <span>Zero mock data. 100% verified official portals.</span>
-            </div>
           </div>
 
-          {/* Quick Categories */}
+          {/* Navigation */}
           <div>
-            <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-200">
-              Opportunity Categories
-            </h3>
-            <ul className="space-y-2.5">
-              {categoryLinks.map((cat) => (
-                <li key={cat.label}>
-                  <Link
-                    href={cat.href}
-                    className="text-xs transition-colors hover:text-white"
-                  >
-                    {cat.label}
-                  </Link>
-                </li>
-              ))}
+            <h4 className="text-[12px] font-semibold text-[#1d1d1f]">Explore</h4>
+            <ul className="mt-3 space-y-2 text-[12px]">
+              <li>
+                <Link href="/scholarships" className="hover:text-[#1d1d1f] transition-colors">
+                  All Scholarships
+                </Link>
+              </li>
+              <li>
+                <Link href="/scholarships?category=Government" className="hover:text-[#1d1d1f] transition-colors">
+                  Government Schemes
+                </Link>
+              </li>
+              <li>
+                <Link href="/scholarships?category=Engineering" className="hover:text-[#1d1d1f] transition-colors">
+                  Engineering & STEM
+                </Link>
+              </li>
+              <li>
+                <Link href="/scholarships?category=Women" className="hover:text-[#1d1d1f] transition-colors">
+                  Women Scholars
+                </Link>
+              </li>
+              <li>
+                <Link href="/scholarships?match=open" className="hover:text-[#1d1d1f] transition-colors">
+                  Find My Matches
+                </Link>
+              </li>
             </ul>
           </div>
 
-          {/* Official Portals Directory */}
+          {/* Official Portals */}
           <div>
-            <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-200">
-              Verified Portals
-            </h3>
-            <ul className="space-y-2.5">
-              {officialPortals.map((portal) => (
+            <h4 className="text-[12px] font-semibold text-[#1d1d1f]">Official Portals</h4>
+            <ul className="mt-3 space-y-2 text-[12px]">
+              {verifiedPortals.map((portal) => (
                 <li key={portal.name}>
                   <a
                     href={portal.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs transition-colors hover:text-indigo-300"
+                    className="group inline-flex items-center gap-1 hover:text-[#1d1d1f] transition-colors"
                   >
                     <span>{portal.name}</span>
-                    <ExternalLink className="h-3 w-3 text-slate-500" />
+                    <ArrowUpRight className="h-3 w-3 text-[#86868b] transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                   </a>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Governance & Platform Info */}
+          {/* Transparency & Integrity */}
           <div>
-            <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-200">
-              Platform & Integrity
-            </h3>
-            <ul className="space-y-2.5 text-xs text-slate-400">
+            <h4 className="text-[12px] font-semibold text-[#1d1d1f]">Integrity</h4>
+            <ul className="mt-3 space-y-2 text-[12px]">
               <li>
-                <Link href="/admin/sync" className="hover:text-white transition-colors">
-                  Live Audit & Scraping Engine
+                <Link href="/admin/sync" className="hover:text-[#1d1d1f] transition-colors">
+                  Data Audit & Verification Status
                 </Link>
               </li>
               <li>
-                <Link href="/scholarships" className="hover:text-white transition-colors">
-                  All Scholarships Directory
+                <Link href="/dashboard" className="hover:text-[#1d1d1f] transition-colors">
+                  Student Dashboard
                 </Link>
               </li>
               <li>
-                <Link href="/dashboard" className="hover:text-white transition-colors">
-                  Application Tracker
-                </Link>
+                <span className="text-[#86868b]">No user data sold</span>
               </li>
-              <li className="pt-2 text-[11px] text-slate-500">
-                All scholarship trademarks, scheme names, and portal logos belong to their respective
-                government ministries, trusts, and sponsoring foundations.
+              <li>
+                <span className="text-[#86868b]">No application intermediaries</span>
               </li>
             </ul>
           </div>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-slate-800 pt-6 text-xs sm:flex-row">
-          <p className="text-slate-500">
-            &copy; 2025 ScholarSetu. Empowering Indian students through accessible education financing.
+        {/* Legal Disclaimer & Copyright */}
+        <div className="mt-12 border-t border-black/[0.06] pt-6 text-[11px] leading-relaxed text-[#86868b]">
+          <p className="mb-2">
+            <strong>Disclaimer:</strong> ScholarSetu is an independent discovery platform.
+            Eligibility matching is provided for informational and planning purposes only and does
+            not guarantee an award. Application requirements, quotas, and deadlines are subject to
+            change by the respective government ministries and foundations. All applications must be
+            submitted directly through official portal links provided.
           </p>
-          <div className="flex items-center gap-4 text-slate-500">
-            <span className="inline-flex items-center gap-1">
-              Engineered with <Heart className="h-3 w-3 text-rose-500 fill-current" /> for Indian Students
-            </span>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-2">
+            <p>© 2026 ScholarSetu. Built for Indian students.</p>
+            <div className="flex items-center gap-4">
+              <span>Privacy-first</span>
+              <span>•</span>
+              <span>Zero commercial brokerage</span>
+            </div>
           </div>
         </div>
       </div>

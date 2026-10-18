@@ -1,26 +1,20 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
-
-const inter = Inter({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
-  title: "ScholarSetu - Discover Scholarships in India",
-  description: "Find and apply for government and private scholarships across India. Check eligibility, track applications, and never miss a deadline.",
+  title: "ScholarSetu — Discover Scholarships That Match Your Future",
+  description:
+    "Discover scholarships that match your education, circumstances, and ambitions. One profile. Relevant opportunities. Clear next steps.",
 };
-
-import { Suspense } from "react";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans">
-        <Suspense fallback={<div className="h-16 w-full border-b border-slate-200 bg-white" />}>
+    <html lang="en" className="h-full scroll-smooth">
+      <body className="min-h-full flex flex-col bg-white text-[#1d1d1f] antialiased selection:bg-[#0071e3]/10 selection:text-[#0071e3]">
+        <Suspense fallback={<div className="h-14 w-full border-b border-black/[0.06] bg-white/80" />}>
           <Navbar />
         </Suspense>
         <main className="flex-1">{children}</main>

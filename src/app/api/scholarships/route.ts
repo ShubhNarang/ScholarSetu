@@ -29,12 +29,12 @@ export async function GET(request: NextRequest) {
         timestamp: new Date().toISOString(),
       },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
       {
         success: false,
         error: "Failed to fetch scholarships from database",
-        details: err.message,
+        details: err instanceof Error ? err.message : String(err),
       },
       { status: 500 }
     );

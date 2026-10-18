@@ -2,47 +2,86 @@
 
 @theme inline {
   --color-background: #ffffff;
-  --color-foreground: #0f172a;
-  --color-primary: #4f46e5;
+  --color-foreground: #1d1d1f;
+  --color-primary: #0071e3;
+  --color-primary-hover: #0077ed;
   --color-primary-foreground: #ffffff;
-  --color-secondary: #f1f5f9;
-  --color-secondary-foreground: #0f172a;
-  --color-muted: #f8fafc;
-  --color-muted-foreground: #64748b;
-  --color-accent: #e0e7ff;
-  --color-accent-foreground: #3730a3;
-  --color-border: #e2e8f0;
-  --color-ring: #4f46e5;
-  --color-destructive: #ef4444;
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-secondary: #f5f5f7;
+  --color-secondary-foreground: #1d1d1f;
+  --color-muted: #fbfbfd;
+  --color-muted-foreground: #6e6e73;
+  --color-accent: #f0f6ff;
+  --color-accent-foreground: #0071e3;
+  --color-border: #e5e5ea;
+  --color-border-subtle: #f2f2f7;
+  --color-ring: #0071e3;
+  --color-success: #10b981;
+  --color-success-subtle: #f0fdf4;
+  --color-warning: #b45309;
+  --color-warning-subtle: #fffbeb;
+  --color-destructive: #dc2626;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+}
+
+:root {
+  --bg-canvas: #ffffff;
+  --bg-subtle: #fbfbfd;
+  --bg-surface: #f5f5f7;
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --text-tertiary: #86868b;
+  --accent: #0071e3;
+  --border-hairline: rgba(0, 0, 0, 0.08);
 }
 
 body {
-  background: var(--color-background);
-  color: var(--color-foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
+/* Restrained, smooth transitions */
+a, button {
+  transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease, opacity 180ms ease, transform 180ms ease;
 }
 
-/* Custom scrollbar */
+/* Subtle focus indicators */
+*:focus-visible {
+  outline: 2px solid #0071e3;
+  outline-offset: 2px;
+}
+
+/* Minimal subtle scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+  background: #d2d2d7;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #a1a1a6;
+}
+
+/* Subtle Apple card shadow utility */
+.apple-card {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 4px 16px rgba(0, 0, 0, 0.02);
+}
+
+.apple-card:hover {
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.04);
 }

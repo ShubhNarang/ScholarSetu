@@ -3,39 +3,46 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  IndianRupee,
-  Calendar,
-  GraduationCap,
-  MapPin,
-  ExternalLink,
-  ShieldCheck,
   Bookmark,
-  Building2,
-  AlertCircle,
-  Clock,
-  Sparkles,
+  Calendar,
+  ArrowRight,
+  ShieldCheck,
+  Check,
 } from "lucide-react";
 import { Scholarship } from "@/types/scholarship";
 import { cn } from "@/lib/utils";
 
+interface MatchExplanation {
+  matchReasons?: string[];
+  missingCriteria?: string[];
+}
+
 interface ScholarshipCardProps {
   scholarship: Scholarship;
   onBookmarkChange?: (isSaved: boolean) => void;
+  matchData?: MatchExplanation;
+  viewMode?: "grid" | "list";
 }
 
 export default function ScholarshipCard({
   scholarship,
   onBookmarkChange,
+  matchData,
+  viewMode = "grid",
 }: ScholarshipCardProps) {
   const [isBookmarked, setIsBookmarked] = useState(false);
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("scholarsetu_saved_ids") || "[]");
-      setIsBookmarked(saved.includes(scholarship.id));
-    } catch {
-      // ignore
-    }
+    const timer = setTimeout(() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem("scholarsetu_saved_ids") || "[]");
+        setIsBookmarked(saved.includes(scholarship.id));
+      } catch {
+        // ignore
+      }
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [scholarship.id]);
 
   const toggleBookmark = (e: React.MouseEvent) => {
@@ -59,203 +66,189 @@ export default function ScholarshipCard({
     }
   };
 
-  // Calculate days left
-  const calculateDaysLeft = (deadline: string) => {
-    try {
-      const diff = new Date(deadline).getTime() - Date.now();
-      const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-      if (days < 0) return "Application Closed";
-      if (days === 0) return "Last Day Today";
-      if (days === 1) return "1 Day Left";
-      return `${days} Days Left`;
-    } catch {
-      return "Active Cycle";
-    }
-  };
+  const isVerified = scholarship.verification_status === "verified";
 
-  const daysLeftText = calculateDaysLeft(scholarship.application_deadline);
-  const isClosingSoon = daysLeftText.includes("Day") || daysLeftText.includes("Today");
+  // List view representation
+  if (viewMode === "list") {
+    return (
+      <div className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-black/[0.07] bg-white p-5 transition-all hover:border-black/[0.14] hover:shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#86868b]">
+            <span>{scholarship.provider}</span>
+            <span>•</span>
+            <span>{scholarship.category}</span>
+            {isVerified && (
+              <span className="inline-flex items-center gap-1 text-[#047857] font-medium">
+                <ShieldCheck className="h-3 w-3" />
+                <span>Verified Source</span>
+              </span>
+            )}
+          </div>
 
-  // Get provider initial
-  const providerInitial = scholarship.provider.charAt(0).toUpperCase();
+          <Link href={`/scholarships/${scholarship.id}`} className="mt-1 block">
+            <h3 className="text-[15px] font-semibold text-[#1d1d1f] group-hover:text-[#0071e3] transition-colors leading-snug">
+              {scholarship.name}
+            </h3>
+          </Link>
 
-  // Category styles
-  const categoryBadgeColors: Record<string, string> = {
-    Government: "bg-indigo-50 text-indigo-700 border-indigo-200",
-    "Merit-Based": "bg-amber-50 text-amber-700 border-amber-200",
-    "Need-Based": "bg-emerald-50 text-emerald-700 border-emerald-200",
-    Engineering: "bg-blue-50 text-blue-700 border-blue-200",
-    Women: "bg-rose-50 text-rose-700 border-rose-200",
-    "School Students": "bg-purple-50 text-purple-700 border-purple-200",
-    Undergraduate: "bg-sky-50 text-sky-700 border-sky-200",
-    Postgraduate: "bg-violet-50 text-violet-700 border-violet-200",
-    "State Scholarships": "bg-teal-50 text-teal-700 border-teal-200",
-  };
+          <p className="mt-1 text-[13px] text-[#6e6e73] line-clamp-1">
+            {scholarship.description}
+          </p>
 
-  const badgeClass =
-    categoryBadgeColors[scholarship.category] || "bg-slate-50 text-slate-700 border-slate-200";
-
-  return (
-    <div className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl">
-      <div>
-        {/* Top Header: Provider Avatar, Name & Bookmark Button */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-50 to-slate-100 text-sm font-bold text-indigo-700 ring-1 ring-slate-200/80">
-              {providerInitial}
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span
-                  className={cn(
-                    "inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold",
-                    badgeClass
-                  )}
-                >
-                  {scholarship.category}
+          {/* Criteria Match pill if available */}
+          {matchData && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+              {matchData.missingCriteria && matchData.missingCriteria.length === 0 ? (
+                <span className="inline-flex items-center gap-1 text-[#047857] bg-[#ecfdf5] px-2 py-0.5 rounded-md font-medium">
+                  <Check className="h-3 w-3" />
+                  <span>Meets {matchData.matchReasons?.length || 4} checked criteria</span>
                 </span>
-                {scholarship.verification_status === "verified" ? (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200/60">
-                    <ShieldCheck className="h-3 w-3 text-emerald-600" />
-                    Verified
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200/60">
-                    <AlertCircle className="h-3 w-3 text-amber-600" />
-                    Needs Verification
-                  </span>
-                )}
-              </div>
-              <p className="mt-1 line-clamp-1 text-xs font-medium text-slate-500">
-                {scholarship.provider}
-              </p>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[#b45309] bg-[#fffbeb] px-2 py-0.5 rounded-md font-medium">
+                  <span>{matchData.missingCriteria?.[0] || "Review scheme conditions"}</span>
+                </span>
+              )}
             </div>
+          )}
+        </div>
+
+        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-black/[0.06] flex-shrink-0">
+          <div className="text-left sm:text-right">
+            <div className="text-[14px] font-semibold text-[#1d1d1f]">
+              {scholarship.award_amount}
+            </div>
+            <div className="flex items-center gap-1 text-[11px] text-[#86868b] mt-0.5">
+              <Calendar className="h-3 w-3" />
+              <span>{scholarship.application_deadline}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleBookmark}
+              aria-label={isBookmarked ? "Remove bookmark" : "Bookmark scholarship"}
+              className={cn(
+                "rounded-full p-2 text-[#86868b] hover:bg-black/[0.04] transition-colors",
+                isBookmarked && "text-[#1d1d1f] fill-current"
+              )}
+            >
+              <Bookmark className={cn("h-4 w-4", isBookmarked && "fill-current")} />
+            </button>
+
+            <Link
+              href={`/scholarships/${scholarship.id}`}
+              className="inline-flex items-center gap-1 text-[12px] font-medium text-[#0071e3] hover:underline"
+            >
+              <span>View details</span>
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Grid view representation (Default)
+  return (
+    <div className="group relative flex flex-col justify-between rounded-xl border border-black/[0.07] bg-white p-5 transition-all hover:border-black/[0.14] hover:shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
+      <div>
+        {/* Header: Provider & Bookmark */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#86868b]">
+            <span className="font-medium">{scholarship.category}</span>
+            {isVerified && (
+              <>
+                <span>•</span>
+                <span className="inline-flex items-center gap-1 text-[#047857] font-medium">
+                  <ShieldCheck className="h-3 w-3" />
+                  <span>Verified</span>
+                </span>
+              </>
+            )}
           </div>
 
           <button
             type="button"
             onClick={toggleBookmark}
-            aria-label={isBookmarked ? "Remove from bookmarks" : "Save scholarship"}
+            aria-label={isBookmarked ? "Remove bookmark" : "Bookmark scholarship"}
             className={cn(
-              "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border transition-all",
-              isBookmarked
-                ? "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
-                : "border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:text-slate-700"
+              "rounded-full p-1.5 text-[#86868b] hover:bg-black/[0.04] hover:text-[#1d1d1f] transition-colors -mr-1 -mt-1",
+              isBookmarked && "text-[#1d1d1f] fill-current"
             )}
           >
-            <Bookmark className={cn("h-4 w-4", isBookmarked && "fill-current")} />
+            <Bookmark className={cn("h-4 w-4", isBookmarked && "fill-current text-[#1d1d1f]")} />
           </button>
         </div>
 
         {/* Title */}
-        <Link href={`/scholarships/${scholarship.id}`} className="mt-3.5 block">
-          <h3 className="line-clamp-2 text-base font-bold text-slate-900 transition-colors group-hover:text-indigo-600">
+        <Link href={`/scholarships/${scholarship.id}`} className="mt-2 block">
+          <h3 className="text-[15px] font-semibold text-[#1d1d1f] group-hover:text-[#0071e3] transition-colors leading-snug line-clamp-2">
             {scholarship.name}
           </h3>
         </Link>
 
-        {/* Description Snippet */}
-        <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-slate-500">
+        {/* Provider */}
+        <p className="mt-1 text-[12px] text-[#86868b] line-clamp-1">
+          {scholarship.provider}
+        </p>
+
+        {/* Description */}
+        <p className="mt-2.5 text-[13px] text-[#6e6e73] line-clamp-2 leading-relaxed">
           {scholarship.description}
         </p>
 
-        {/* Key Metrics Grid */}
-        <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-50/80 p-3 text-xs text-slate-700 border border-slate-100">
-          <div className="flex items-center gap-2">
-            <IndianRupee className="h-4 w-4 flex-shrink-0 text-emerald-600" />
-            <div>
-              <span className="block text-[10px] font-medium text-slate-400">Award Amount</span>
-              <span className="font-bold text-slate-900">{scholarship.award_amount}</span>
-            </div>
+        {/* Match Status explanation if profile active */}
+        {matchData && (
+          <div className="mt-3">
+            {matchData.missingCriteria && matchData.missingCriteria.length === 0 ? (
+              <div className="inline-flex items-center gap-1 rounded-md bg-[#ecfdf5] px-2 py-0.5 text-[11px] font-medium text-[#047857]">
+                <Check className="h-3 w-3" />
+                <span>Meets checked criteria</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1 rounded-md bg-[#fffbeb] px-2 py-0.5 text-[11px] font-medium text-[#b45309]">
+                <span>{matchData.missingCriteria?.[0] || "Review specific criteria"}</span>
+              </div>
+            )}
           </div>
-
-          <div className="flex items-center gap-2">
-            <Clock
-              className={cn(
-                "h-4 w-4 flex-shrink-0",
-                isClosingSoon ? "text-rose-600 animate-pulse" : "text-indigo-600"
-              )}
-            />
-            <div>
-              <span className="block text-[10px] font-medium text-slate-400">Deadline</span>
-              <span
-                className={cn(
-                  "font-bold",
-                  isClosingSoon ? "text-rose-600" : "text-slate-900"
-                )}
-              >
-                {daysLeftText}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <GraduationCap className="h-4 w-4 flex-shrink-0 text-indigo-500" />
-            <div className="min-w-0">
-              <span className="block text-[10px] font-medium text-slate-400">Eligibility</span>
-              <span className="block truncate font-medium text-slate-800">
-                {scholarship.education_levels.slice(0, 2).join(", ")}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 flex-shrink-0 text-slate-500" />
-            <div className="min-w-0">
-              <span className="block text-[10px] font-medium text-slate-400">Location</span>
-              <span className="block truncate font-medium text-slate-800">
-                {scholarship.eligible_states[0] || "All India"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Criteria Highlights */}
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {scholarship.family_income_limit && (
-            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
-              Max: {scholarship.family_income_limit}
-            </span>
-          )}
-          {scholarship.host_platform && (
-            <span className="rounded-md bg-indigo-50/70 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
-              via {scholarship.host_platform}
-            </span>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* Card Action Footer */}
-      <div className="mt-5 flex items-center gap-2 pt-3 border-t border-slate-100">
-        <Link
-          href={`/scholarships/${scholarship.id}`}
-          className="flex-1 rounded-xl border border-slate-200 bg-white py-2 text-center text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
-        >
-          View Details
-        </Link>
+      {/* Footer Facts */}
+      <div className="mt-5 border-t border-black/[0.05] pt-3.5">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-[#86868b] font-medium">
+              Award
+            </div>
+            <div className="text-[13px] font-semibold text-[#1d1d1f]">
+              {scholarship.award_amount}
+            </div>
+          </div>
 
-        {scholarship.verification_status === "verified" ? (
-          <a
-            href={scholarship.application_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-indigo-700 hover:shadow-md"
+          <div className="text-right">
+            <div className="text-[10px] uppercase tracking-wider text-[#86868b] font-medium">
+              Deadline
+            </div>
+            <div className="text-[12px] font-medium text-[#6e6e73]">
+              {scholarship.application_deadline}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between pt-2">
+          <span className="text-[11px] text-[#86868b]">
+            Via {scholarship.host_platform.split(" ")[0]}
+          </span>
+          <Link
+            href={`/scholarships/${scholarship.id}`}
+            className="inline-flex items-center gap-1 text-[12px] font-medium text-[#0071e3] hover:underline"
           >
-            <span>Apply Now</span>
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        ) : (
-          <a
-            href={scholarship.source_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-amber-600 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-amber-700"
-            title="Application link needs verification. Link opens official source."
-          >
-            <span>Verify & Apply</span>
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        )}
+            <span>Details</span>
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
       </div>
     </div>
   );

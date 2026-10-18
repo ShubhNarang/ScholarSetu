@@ -1,9 +1,9 @@
-import { Scholarship, ExtractionLog, FilterParams, ScholarshipCategory } from "@/types/scholarship";
+import { Scholarship, ExtractionLog, FilterParams } from "@/types/scholarship";
 import { VERIFIED_SCHOLARSHIPS } from "@/lib/verified-scholarships";
 
 // In-memory runtime store for logs and dynamic records
-let dynamicScholarships: Scholarship[] = [...VERIFIED_SCHOLARSHIPS];
-let extractionLogsStore: ExtractionLog[] = [
+const dynamicScholarships: Scholarship[] = [...VERIFIED_SCHOLARSHIPS];
+const extractionLogsStore: ExtractionLog[] = [
   {
     id: "log_init_nsp",
     source_name: "National Scholarship Portal (NSP)",

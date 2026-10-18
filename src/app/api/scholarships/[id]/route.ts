@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getScholarshipById } from "@/lib/db";
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -23,12 +23,12 @@ export async function GET(
       success: true,
       scholarship,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
       {
         success: false,
         error: "Failed to retrieve scholarship",
-        details: err.message,
+        details: err instanceof Error ? err.message : String(err),
       },
       { status: 500 }
     );

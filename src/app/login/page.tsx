@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { GraduationCap, Mail, Lock, Eye, EyeOff, ShieldCheck, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -12,71 +14,71 @@ export default function LoginPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    alert("Demo Authentication: You are signed in as a student scholar! Redirecting to Dashboard.");
-    window.location.href = "/dashboard";
+    router.push("/dashboard");
   };
 
   return (
-    <div className="flex min-h-[85vh] items-center justify-center bg-slate-50/70 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-6">
+    <div className="flex min-h-[80vh] items-center justify-center bg-white px-4 py-16 sm:px-6 lg:px-8">
+      <div className="w-full max-w-sm space-y-8">
         {/* Brand Header */}
-        <div className="text-center">
-          <Link href="/" className="inline-flex items-center gap-2 group">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-md transition-transform group-hover:scale-105">
-              <GraduationCap className="h-7 w-7" />
-            </div>
+        <div className="text-center space-y-2">
+          <Link href="/" className="inline-block">
+            <span className="text-[20px] font-semibold text-[#1d1d1f] tracking-tight">
+              ScholarSetu
+            </span>
           </Link>
-          <h2 className="mt-4 text-2xl font-black text-slate-900 tracking-tight">
-            Welcome back to Scholar<span className="text-indigo-600">Setu</span>
+          <h2 className="text-[22px] font-semibold text-[#1d1d1f] tracking-tight">
+            Sign in with your email
           </h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Sign in to track verified applications and manage saved opportunities.
+          <p className="text-[13px] text-[#6e6e73]">
+            Track your saved opportunities and submitted applications.
           </p>
         </div>
 
         {/* Card */}
-        <div className="rounded-3xl border border-slate-200/90 bg-white p-7 sm:p-8 shadow-xs">
+        <div className="rounded-2xl border border-black/[0.08] bg-[#fbfbfd] p-7 shadow-xs">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[12px] font-medium text-[#1d1d1f] mb-1.5">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#86868b]" />
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="student@example.edu.in"
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50/50 py-2.5 pl-10 pr-4 text-xs font-medium text-slate-900 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10"
+                  className="w-full rounded-xl border border-black/[0.1] bg-white py-2.5 pl-10 pr-3.5 text-[13px] text-[#1d1d1f] placeholder:text-[#86868b] focus:border-[#0071e3] focus:outline-none"
                 />
               </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-slate-700">
+                <label className="block text-[12px] font-medium text-[#1d1d1f]">
                   Password
                 </label>
-                <a href="#" className="text-[11px] font-semibold text-indigo-600 hover:underline">
-                  Forgot password?
+                <a href="#" className="text-[11px] text-[#0071e3] hover:underline">
+                  Forgot?
                 </a>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#86868b]" />
                 <input
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50/50 py-2.5 pl-10 pr-10 text-xs font-medium text-slate-900 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10"
+                  className="w-full rounded-xl border border-black/[0.1] bg-white py-2.5 pl-10 pr-10 text-[13px] text-[#1d1d1f] placeholder:text-[#86868b] focus:border-[#0071e3] focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  aria-label="Toggle password visibility"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#86868b] hover:text-[#1d1d1f]"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -89,35 +91,27 @@ export default function LoginPage() {
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                className="h-3.5 w-3.5 rounded accent-[#0071e3]"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-xs text-slate-600 font-medium">
-                Remember me on this browser
+              <label htmlFor="remember-me" className="ml-2 block text-[12px] text-[#6e6e73]">
+                Remember this device
               </label>
             </div>
 
             <button
               type="submit"
-              className="w-full rounded-xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-md hover:bg-indigo-700 transition-colors"
+              className="w-full rounded-full bg-[#1d1d1f] py-2.5 text-[13px] font-medium text-white hover:bg-[#333336] transition-colors"
             >
-              Sign In to ScholarSetu
+              Sign In
             </button>
           </form>
 
-          {/* Demo Notice */}
-          <div className="mt-5 rounded-xl bg-indigo-50/70 p-3 text-[11px] text-indigo-900 border border-indigo-100 flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-            <span>
-              <strong>Demo Auth:</strong> Enter any email and password to access the student tracker.
-            </span>
-          </div>
-
-          <p className="mt-6 text-center text-xs text-slate-500">
-            Don&apos;t have an account yet?{" "}
-            <Link href="/signup" className="font-bold text-indigo-600 hover:underline">
+          <div className="mt-6 text-center text-[12px] text-[#6e6e73] border-t border-black/[0.06] pt-4">
+            New to ScholarSetu?{" "}
+            <Link href="/signup" className="font-medium text-[#0071e3] hover:underline">
               Create an account
             </Link>
-          </p>
+          </div>
         </div>
       </div>
     </div>

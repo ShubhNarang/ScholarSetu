@@ -4,25 +4,14 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
-  Building2,
-  Calendar,
-  IndianRupee,
-  Clock,
-  GraduationCap,
-  MapPin,
-  ExternalLink,
-  CheckCircle2,
-  FileText,
+  Check,
   Bookmark,
   Share2,
   AlertCircle,
-  HelpCircle,
   ArrowLeft,
   ChevronRight,
-  Info,
-  Check,
-  X,
-  Sparkles,
+  FileText,
+  ArrowUpRight,
 } from "lucide-react";
 import ScholarshipCard from "@/components/scholarship-card";
 import { Scholarship } from "@/types/scholarship";
@@ -39,25 +28,21 @@ export default function ScholarshipDetailView({ id }: Props) {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Student Eligibility Quick-Check interactive calculator
-  const [userIncome, setUserIncome] = useState<string>("300000");
-  const [userGender, setUserGender] = useState<string>("female");
-  const [userCategory, setUserCategory] = useState<string>("General");
-  const [eligibilityResult, setEligibilityResult] = useState<string | null>(null);
-
   useEffect(() => {
+    let isMounted = true;
     async function loadData() {
       try {
         const res = await fetch(`/api/scholarships/${id}`);
         const data = await res.json();
+        if (!isMounted) return;
         if (data.success && data.scholarship) {
           setScholarship(data.scholarship);
 
           // Load related scholarships
           const relRes = await fetch(`/api/scholarships?category=${encodeURIComponent(data.scholarship.category)}`);
           const relData = await relRes.json();
-          if (relData.success && Array.isArray(relData.scholarships)) {
-            setRelated(relData.scholarships.filter((s: Scholarship) => s.id !== id).slice(0, 3));
+          if (isMounted && relData.success && Array.isArray(relData.scholarships)) {
+            setRelated(relData.scholarships.filter((s: Scholarship) => s.id !== id).slice(0, 2));
           }
         } else {
           setScholarship(null);
@@ -65,18 +50,26 @@ export default function ScholarshipDetailView({ id }: Props) {
       } catch (err) {
         console.error("Failed to fetch scholarship:", err);
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     }
     loadData();
 
-    // Check if bookmarked
-    try {
-      const saved = JSON.parse(localStorage.getItem("scholarsetu_saved_ids") || "[]");
-      setIsBookmarked(saved.includes(id));
-    } catch {
-      // ignore
-    }
+    const timer = setTimeout(() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem("scholarsetu_saved_ids") || "[]");
+        if (isMounted) {
+          setIsBookmarked(saved.includes(id));
+        }
+      } catch {
+        // ignore
+      }
+    }, 0);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
   }, [id]);
 
   const toggleBookmark = () => {
@@ -104,37 +97,12 @@ export default function ScholarshipDetailView({ id }: Props) {
     }
   };
 
-  const evaluateEligibility = () => {
-    if (!scholarship) return;
-    const incomeNum = parseInt(userIncome, 10);
-
-    // Rule checks
-    if (scholarship.id === "nsp-aicte-pragati" && userGender !== "female") {
-      setEligibilityResult("Ineligible: AICTE Pragati is exclusively reserved for female students.");
-      return;
-    }
-    if (scholarship.id === "kotak-kanya-scholarship" && userGender !== "female") {
-      setEligibilityResult("Ineligible: Kotak Kanya Scholarship is open exclusively to girl students.");
-      return;
-    }
-    if (scholarship.id === "nsp-pmusp-csss" && incomeNum > 450000) {
-      setEligibilityResult("Ineligible: Family income exceeds PM-USP limit of ₹4,50,000 / annum.");
-      return;
-    }
-    if (scholarship.id === "siemens-scholarship-program" && incomeNum > 200000) {
-      setEligibilityResult("Ineligible: Family income exceeds Siemens SSP cap of ₹2,00,000 / annum.");
-      return;
-    }
-
-    setEligibilityResult("Eligible: Based on your income and criteria, you appear eligible! Proceed to review required documents and apply on the official portal.");
-  };
-
   if (isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-9 w-9 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
-          <p className="text-xs font-semibold text-slate-500">Loading verified opportunity details...</p>
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#1d1d1f] border-t-transparent" />
+          <p className="text-[12px] text-[#86868b]">Loading verified scheme details…</p>
         </div>
       </div>
     );
@@ -142,384 +110,300 @@ export default function ScholarshipDetailView({ id }: Props) {
 
   if (!scholarship) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-24 text-center">
-        <AlertCircle className="mx-auto h-12 w-12 text-rose-500" />
-        <h1 className="mt-4 text-2xl font-bold text-slate-900">Scholarship Not Found</h1>
-        <p className="mt-2 text-sm text-slate-500">
-          This scholarship record does not exist or may have been unverified.
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+        <AlertCircle className="mx-auto h-8 w-8 text-[#86868b]" />
+        <h1 className="mt-4 text-xl font-semibold text-[#1d1d1f]">Scholarship Not Found</h1>
+        <p className="mt-2 text-[13px] text-[#6e6e73]">
+          This record does not exist or has been removed from the verified index.
         </p>
         <Link
           href="/scholarships"
-          className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700"
+          className="mt-6 inline-flex items-center gap-1.5 rounded-full border border-black/[0.1] bg-white px-5 py-2 text-[13px] font-medium text-[#1d1d1f] hover:bg-black/[0.03]"
         >
-          <ArrowLeft className="h-4 w-4" />
-          <span>Return to All Scholarships</span>
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span>Return to Scholarships</span>
         </Link>
       </div>
     );
   }
 
+  const isVerified = scholarship.verification_status === "verified";
+
   return (
-    <div className="min-h-screen bg-slate-50/60 pb-24 pt-6">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-white pb-24 pt-6">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb Navigation */}
-        <nav className="flex items-center gap-2 text-xs font-medium text-slate-500 mb-6">
-          <Link href="/" className="hover:text-indigo-600 transition-colors">
+        <nav className="flex items-center gap-1.5 text-[12px] text-[#86868b] mb-8">
+          <Link href="/" className="hover:text-[#1d1d1f] transition-colors">
             Home
           </Link>
-          <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-          <Link href="/scholarships" className="hover:text-indigo-600 transition-colors">
+          <ChevronRight className="h-3.5 w-3.5 text-[#86868b]" />
+          <Link href="/scholarships" className="hover:text-[#1d1d1f] transition-colors">
             Scholarships
           </Link>
-          <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-          <span className="truncate max-w-xs text-slate-800 font-semibold">{scholarship.name}</span>
+          <ChevronRight className="h-3.5 w-3.5 text-[#86868b]" />
+          <span className="truncate max-w-xs text-[#1d1d1f] font-medium">{scholarship.name}</span>
         </nav>
 
-        {/* Top Header Card */}
-        <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 sm:h-16 sm:w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-50 to-slate-100 text-xl font-black text-indigo-700 ring-1 ring-slate-200/80">
-                {scholarship.provider.charAt(0)}
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-md bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-700">
-                    {scholarship.category}
-                  </span>
-                  {scholarship.verification_status === "verified" ? (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200/80">
-                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                      Verified via {scholarship.host_platform}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 ring-1 ring-amber-200/80">
-                      <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
-                      Needs Verification
-                    </span>
-                  )}
-                  <span className="text-[11px] text-slate-400 font-medium">
-                    Audited: {new Date(scholarship.last_checked_at).toLocaleDateString()}
-                  </span>
-                </div>
+        {/* Title Header Section */}
+        <div className="pb-8 border-b border-black/[0.06]">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#86868b]">
+            <span className="font-medium text-[#0071e3]">{scholarship.category}</span>
+            <span>•</span>
+            <span>{scholarship.provider}</span>
+            {isVerified && (
+              <>
+                <span>•</span>
+                <span className="inline-flex items-center gap-1 text-[#047857] font-medium">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  <span>Audited Official Scheme</span>
+                </span>
+              </>
+            )}
+          </div>
 
-                <h1 className="mt-2 text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 leading-tight">
-                  {scholarship.name}
-                </h1>
-                <p className="mt-1 flex items-center gap-1 text-xs sm:text-sm font-semibold text-slate-600">
-                  <Building2 className="h-4 w-4 text-slate-400" />
-                  <span>{scholarship.provider}</span>
-                </p>
-              </div>
-            </div>
+          <h1 className="mt-2 text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-[#1d1d1f] leading-tight">
+            {scholarship.name}
+          </h1>
 
-            {/* Quick Actions */}
+          {/* Quick Actions Bar */}
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
+              <a
+                href={scholarship.application_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full bg-[#1d1d1f] px-6 py-2.5 text-[13px] font-medium text-white shadow-2xs hover:bg-[#333336] transition-all"
+              >
+                <span>Apply on Official Website</span>
+                <ArrowUpRight className="h-3.5 w-3.5 opacity-80" />
+              </a>
+
               <button
                 type="button"
                 onClick={toggleBookmark}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-xl border px-4 py-2.5 text-xs font-bold transition-all",
+                  "inline-flex items-center gap-1.5 rounded-full border px-4 py-2.5 text-[13px] font-medium transition-colors",
                   isBookmarked
-                    ? "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    ? "border-black/[0.1] bg-[#f5f5f7] text-[#1d1d1f]"
+                    : "border-black/[0.08] bg-white text-[#6e6e73] hover:text-[#1d1d1f]"
                 )}
               >
-                <Bookmark className={cn("h-4 w-4", isBookmarked && "fill-current")} />
+                <Bookmark className={cn("h-3.5 w-3.5", isBookmarked && "fill-current")} />
                 <span>{isBookmarked ? "Saved" : "Save"}</span>
               </button>
 
               <button
                 type="button"
                 onClick={copyShareLink}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                aria-label="Share scholarship link"
+                className="rounded-full border border-black/[0.08] bg-white p-2.5 text-[#6e6e73] hover:text-[#1d1d1f] transition-colors"
               >
-                {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Share2 className="h-4 w-4" />}
-                <span>{copied ? "Link Copied!" : "Share"}</span>
+                {copied ? <Check className="h-3.5 w-3.5 text-[#047857]" /> : <Share2 className="h-3.5 w-3.5" />}
               </button>
+            </div>
+
+            <div className="text-[12px] text-[#86868b]">
+              Last verified: {new Date(scholarship.last_checked_at).toLocaleDateString()} via {scholarship.host_platform}
+            </div>
+          </div>
+        </div>
+
+        {/* Key Metrics Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-8 border-b border-black/[0.06]">
+          <div>
+            <div className="text-[11px] font-medium uppercase tracking-wider text-[#86868b]">
+              Award Value
+            </div>
+            <div className="mt-1 text-[16px] font-semibold text-[#1d1d1f]">
+              {scholarship.award_amount}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[11px] font-medium uppercase tracking-wider text-[#86868b]">
+              Application Deadline
+            </div>
+            <div className="mt-1 text-[15px] font-semibold text-[#1d1d1f]">
+              {scholarship.application_deadline}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[11px] font-medium uppercase tracking-wider text-[#86868b]">
+              Income Limit
+            </div>
+            <div className="mt-1 text-[14px] font-medium text-[#1d1d1f]">
+              {scholarship.family_income_limit}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[11px] font-medium uppercase tracking-wider text-[#86868b]">
+              Applicable States
+            </div>
+            <div className="mt-1 text-[14px] font-medium text-[#1d1d1f] truncate">
+              {scholarship.eligible_states.join(", ")}
             </div>
           </div>
         </div>
 
         {/* 2-Column Content Layout */}
-        <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
-          {/* LEFT 2 COLUMNS: COMPREHENSIVE DETAILS */}
-          <div className="space-y-8 lg:col-span-2">
-            {/* Overview Section */}
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs">
-              <h2 className="text-base font-bold text-slate-900 sm:text-lg">
-                Scholarship Overview
+        <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-10">
+          {/* Main Content (2 Cols) */}
+          <div className="lg:col-span-2 space-y-10">
+            {/* 1. Overview */}
+            <section className="space-y-3">
+              <h2 className="text-[18px] font-semibold text-[#1d1d1f]">
+                Overview
               </h2>
-              <p className="mt-3 text-sm leading-relaxed text-slate-600">
+              <p className="text-[14px] leading-relaxed text-[#6e6e73]">
                 {scholarship.description}
               </p>
+            </section>
 
-              {/* Award Breakdown */}
-              <div className="mt-6 rounded-2xl bg-indigo-50/60 p-5 border border-indigo-100">
-                <div className="flex items-center gap-2 text-indigo-900 font-bold text-sm">
-                  <IndianRupee className="h-5 w-5 text-indigo-600" />
-                  <span>Financial Grant & Key Benefits</span>
-                </div>
-                <ul className="mt-3 space-y-2 text-xs sm:text-sm text-indigo-950 font-medium">
-                  {scholarship.award_benefits.map((benefit, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-indigo-600 mt-0.5 flex-shrink-0" />
+            {/* 2. Award Benefits */}
+            {scholarship.award_benefits && scholarship.award_benefits.length > 0 && (
+              <section className="space-y-3">
+                <h2 className="text-[18px] font-semibold text-[#1d1d1f]">
+                  Benefits & Disbursal Structure
+                </h2>
+                <ul className="space-y-2.5">
+                  {scholarship.award_benefits.map((benefit, idx) => (
+                    <li key={idx} className="flex items-start gap-2.5 text-[14px] text-[#6e6e73]">
+                      <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-[#0071e3] flex-shrink-0" />
                       <span>{benefit}</span>
                     </li>
                   ))}
                 </ul>
-              </div>
-            </section>
+              </section>
+            )}
 
-            {/* Eligibility Criteria */}
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs">
-              <h2 className="text-base font-bold text-slate-900 sm:text-lg">
-                Official Eligibility Rules
+            {/* 3. Eligibility Criteria */}
+            <section className="space-y-3">
+              <h2 className="text-[18px] font-semibold text-[#1d1d1f]">
+                Eligibility Criteria
               </h2>
-              <div className="mt-4 space-y-3">
-                {scholarship.eligibility_criteria.map((criteria, i) => (
-                  <div key={i} className="flex items-start gap-3 rounded-xl bg-slate-50/70 p-3.5 border border-slate-100">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 flex-shrink-0" />
-                    <span className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
-                      {criteria}
-                    </span>
-                  </div>
+              <ul className="space-y-2.5">
+                {scholarship.eligibility_criteria.map((criteria, idx) => (
+                  <li key={idx} className="flex items-start gap-2.5 text-[14px] text-[#6e6e73]">
+                    <Check className="h-4 w-4 text-[#047857] flex-shrink-0 mt-0.5" />
+                    <span>{criteria}</span>
+                  </li>
                 ))}
-              </div>
-
-              {/* Quick Criteria Grid */}
-              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="rounded-xl border border-slate-200 p-3.5">
-                  <span className="block font-semibold text-slate-400">Family Income Cap</span>
-                  <span className="mt-1 block text-sm font-bold text-slate-900">
-                    {scholarship.family_income_limit}
-                  </span>
-                </div>
-                <div className="rounded-xl border border-slate-200 p-3.5">
-                  <span className="block font-semibold text-slate-400">Academic Benchmark</span>
-                  <span className="mt-1 block text-sm font-bold text-slate-900">
-                    {scholarship.academic_requirements}
-                  </span>
-                </div>
-              </div>
+              </ul>
             </section>
 
-            {/* Interactive Eligibility Quick-Checker */}
-            <section className="rounded-3xl border border-indigo-200 bg-gradient-to-br from-indigo-50/40 to-white p-6 sm:p-8 shadow-xs">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-indigo-600" />
-                <h2 className="text-base font-bold text-slate-900 sm:text-lg">
-                  Instant Eligibility Pre-Check
-                </h2>
-              </div>
-              <p className="mt-1 text-xs text-slate-500">
-                Input your student parameters to evaluate if you satisfy the key rules before submitting.
-              </p>
-
-              <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Annual Family Income (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={userIncome}
-                    onChange={(e) => setUserIncome(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs font-semibold text-slate-900 focus:border-indigo-500 focus:outline-none"
-                    placeholder="300000"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Gender
-                  </label>
-                  <select
-                    value={userGender}
-                    onChange={(e) => setUserGender(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs font-semibold text-slate-900 focus:border-indigo-500 focus:outline-none"
-                  >
-                    <option value="female">Female</option>
-                    <option value="male">Male</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <div className="flex items-end">
-                  <button
-                    type="button"
-                    onClick={evaluateEligibility}
-                    className="w-full rounded-xl bg-indigo-600 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700"
-                  >
-                    Evaluate Now
-                  </button>
-                </div>
-              </div>
-
-              {eligibilityResult && (
-                <div
-                  className={cn(
-                    "mt-4 rounded-xl p-3.5 text-xs leading-relaxed font-semibold border",
-                    eligibilityResult.startsWith("Eligible")
-                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                      : "bg-rose-50 text-rose-800 border-rose-200"
-                  )}
-                >
-                  {eligibilityResult}
-                </div>
-              )}
-            </section>
-
-            {/* Required Documents */}
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs">
-              <h2 className="text-base font-bold text-slate-900 sm:text-lg">
-                Mandatory Documentation Checklist
+            {/* 4. Mandatory Documents Checklist */}
+            <section className="space-y-3">
+              <h2 className="text-[18px] font-semibold text-[#1d1d1f]">
+                Required Documents Checklist
               </h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Keep scanned soft copies ready before initiating your application on the official portal.
+              <p className="text-[13px] text-[#86868b]">
+                Ensure you have scanned soft copies of these documents ready before opening the application portal:
               </p>
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {scholarship.required_documents.map((doc, i) => (
-                  <div key={i} className="flex items-start gap-2.5 rounded-xl border border-slate-100 bg-slate-50/60 p-3 text-xs font-medium text-slate-700">
-                    <FileText className="h-4 w-4 text-indigo-600 mt-0.5 flex-shrink-0" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
+                {scholarship.required_documents.map((doc, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2 rounded-lg border border-black/[0.06] bg-[#fbfbfd] p-3 text-[13px] text-[#1d1d1f]"
+                  >
+                    <FileText className="h-4 w-4 text-[#86868b] flex-shrink-0" />
                     <span>{doc}</span>
                   </div>
                 ))}
               </div>
             </section>
 
-            {/* Source Attribution & Integrity Note */}
-            <section className="rounded-3xl border border-slate-200 bg-slate-50/80 p-6 text-xs text-slate-600">
-              <div className="flex items-center gap-2 text-slate-800 font-bold mb-2">
-                <Info className="h-4 w-4 text-indigo-600" />
-                <span>Verification Source & Data Provenance</span>
-              </div>
-              <p className="leading-relaxed">
-                This opportunity has been audited from official guidelines hosted at{" "}
+            {/* 5. Official Source Notification */}
+            <section className="rounded-xl border border-black/[0.06] bg-[#fbfbfd] p-5 space-y-2">
+              <h3 className="text-[13px] font-semibold text-[#1d1d1f]">
+                Official Source & Verification
+              </h3>
+              <p className="text-[12px] text-[#6e6e73] leading-relaxed">
+                This scheme was verified directly against the published guidelines on{" "}
                 <a
                   href={scholarship.source_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-bold text-indigo-600 hover:underline"
+                  className="font-medium text-[#0071e3] hover:underline"
                 >
                   {scholarship.source_url}
                 </a>
-                . ScholarSetu does not accept payments or act as a commercial intermediary. Applications
-                are processed directly by {scholarship.provider} through {scholarship.host_platform}.
+                . ScholarSetu does not accept payments or act as a commercial intermediary.
               </p>
             </section>
           </div>
 
-          {/* RIGHT 1 COLUMN: STICKY OPPORTUNITY SUMMARY */}
+          {/* Sticky Sidebar (1 Col) */}
           <div className="lg:col-span-1">
-            <div className="sticky top-28 space-y-6">
-              <div className="rounded-3xl border border-slate-200/90 bg-white p-6 shadow-sm">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Opportunity Summary
+            <div className="sticky top-20 rounded-2xl border border-black/[0.08] bg-[#fbfbfd] p-6 space-y-5">
+              <div>
+                <span className="text-[11px] font-medium uppercase tracking-wider text-[#86868b]">
+                  Application Status
                 </span>
+                <div className="mt-1 flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-[#10b981]" />
+                  <span className="text-[14px] font-semibold text-[#1d1d1f]">
+                    Active Application Window
+                  </span>
+                </div>
+              </div>
 
-                {/* Amount */}
-                <div className="mt-3 pb-4 border-b border-slate-100">
-                  <span className="text-xs font-medium text-slate-500">Award Amount</span>
-                  <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-2xl font-black text-slate-900">
-                      {scholarship.award_amount}
-                    </span>
-                  </div>
+              <div className="space-y-3 pt-3 border-t border-black/[0.06] text-[13px]">
+                <div className="flex justify-between">
+                  <span className="text-[#86868b]">Host Portal</span>
+                  <span className="font-medium text-[#1d1d1f] text-right truncate max-w-[150px]">
+                    {scholarship.host_platform}
+                  </span>
                 </div>
 
-                {/* Deadline & Key Facts */}
-                <div className="mt-4 space-y-3.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 flex items-center gap-1.5">
-                      <Calendar className="h-4 w-4 text-slate-400" />
-                      Deadline:
-                    </span>
-                    <span className="font-bold text-slate-900">
-                      {scholarship.application_deadline}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 flex items-center gap-1.5">
-                      <GraduationCap className="h-4 w-4 text-slate-400" />
-                      Education Level:
-                    </span>
-                    <span className="font-bold text-slate-900 text-right">
-                      {scholarship.education_levels.join(", ")}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 flex items-center gap-1.5">
-                      <MapPin className="h-4 w-4 text-slate-400" />
-                      Eligible States:
-                    </span>
-                    <span className="font-bold text-slate-900">
-                      {scholarship.eligible_states.join(", ")}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 flex items-center gap-1.5">
-                      <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                      Host Platform:
-                    </span>
-                    <span className="font-bold text-indigo-700">
-                      {scholarship.host_platform}
-                    </span>
-                  </div>
+                <div className="flex justify-between">
+                  <span className="text-[#86868b]">Education</span>
+                  <span className="font-medium text-[#1d1d1f] text-right">
+                    {scholarship.education_levels.join(", ")}
+                  </span>
                 </div>
 
-                {/* PRIMARY ACTION BUTTON: APPLY ON OFFICIAL PORTAL */}
-                <div className="mt-6 pt-4 border-t border-slate-100 space-y-2.5">
-                  {scholarship.verification_status === "verified" ? (
-                    <a
-                      href={scholarship.application_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3.5 text-xs font-bold text-white shadow-md transition-all hover:bg-indigo-700 hover:shadow-lg"
-                    >
-                      <span>Apply on Official Portal</span>
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  ) : (
-                    <a
-                      href={scholarship.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-600 py-3.5 text-xs font-bold text-white shadow-md transition-all hover:bg-amber-700"
-                    >
-                      <span>Application Link Needs Verification</span>
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  )}
-
-                  <a
-                    href={scholarship.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
-                  >
-                    <span>View Official Notification / Guidelines</span>
-                    <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
-                  </a>
+                <div className="flex justify-between">
+                  <span className="text-[#86868b]">Academic Reqs</span>
+                  <span className="font-medium text-[#1d1d1f] text-right text-[12px] max-w-[140px] truncate">
+                    {scholarship.academic_requirements}
+                  </span>
                 </div>
+              </div>
+
+              <div className="pt-3 border-t border-black/[0.06]">
+                <a
+                  href={scholarship.application_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-full bg-[#1d1d1f] py-3 text-[13px] font-medium text-white hover:bg-[#333336] transition-all"
+                >
+                  <span>Apply on Official Portal</span>
+                  <ArrowUpRight className="h-3.5 w-3.5 opacity-80" />
+                </a>
+
+                <p className="mt-2 text-center text-[11px] text-[#86868b]">
+                  Opens official portal in a new tab
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* RELATED OPPORTUNITIES */}
+        {/* Related Opportunities */}
         {related.length > 0 && (
-          <section className="mt-16 pt-12 border-t border-slate-200">
-            <h2 className="text-xl font-bold text-slate-900 mb-6">
-              Similar Verified Opportunities in {scholarship.category}
+          <div className="mt-16 pt-12 border-t border-black/[0.06]">
+            <h2 className="text-[18px] font-semibold text-[#1d1d1f] mb-6">
+              Similar Scholarships in {scholarship.category}
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {related.map((s) => (
                 <ScholarshipCard key={s.id} scholarship={s} />
               ))}
             </div>
-          </section>
+          </div>
         )}
       </div>
     </div>
